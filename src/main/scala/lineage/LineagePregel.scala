@@ -18,19 +18,11 @@ object LineagePregel extends Logging {
    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
    mergeMsg: (A, A) => A)
   : (Graph[VD, ED], PregelMetrics) = {
-    // TODO: make setting lineage directory optional
-    require(
-      LineageContext.getLineageDir.isDefined,
-      "No lineage directory defined. Use LineageContext.setLineageDir(dir) to save lineage " +
-        " output."
-    )
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0," +
       s" but got ${maxIterations}")
 
-    val lineagePath = LineageContext.getLineageDir.get
+    val checkpointer = new GraphCheckpointer[VD, ED](pruneLineage, sampleFraction)
 
-//    val checkpointInterval = graph.vertices.sparkContext.getConf
-//      .getInt("spark.graphx.pregel.checkpointInterval", -1)
     var g = graph.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
 //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
 //      checkpointInterval, graph.vertices.sparkContext)
@@ -43,9 +35,7 @@ object LineagePregel extends Logging {
 //    messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
     var activeMessages = messages.count()
 
-    if (LineageContext.isCheckpointingEnabled()) {
-      g.vertices.saveAsTextFile(f"${lineagePath}/input.v")
-    }
+    checkpointer.save(g)
 
     val metrics = new PregelMetrics()
 
@@ -56,29 +46,9 @@ object LineagePregel extends Logging {
       // Receive the messages and update the vertices.
       prevG = g
       g = g.joinVertices(messages)(vprog)
-//      graphCheckpointer.update(g)
+      checkpointer.save(g)
 
-      val prunedVertices = if (pruneLineage.isDefined) {
-        g.vertices.filter(pruneLineage.get)
-      } else {
-        g.vertices
-      }
-
-      val vertices = if (sampleFraction.isDefined) {
-        prunedVertices.sample(withReplacement = false, sampleFraction.get)
-      } else {
-        prunedVertices
-      }
-
-      if (LineageContext.isCheckpointingEnabled()) {
-        vertices.saveAsTextFile(f"${lineagePath}/${i}%04d.v")
-      }
-
-      // scalastyle:off println
       println(s"Iteration ${i}: Sending ${messages.count()} messages.")
-      // scalastyle:on println
-
-      metrics.updateMetrics(new PregelIterationMetrics(messages.count()))
 
       val oldMessages = messages
       // Send new messages, skipping edges where neither side received a message. We must cache
@@ -91,6 +61,7 @@ object LineagePregel extends Logging {
       // and the vertices of g).
 //      messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
       activeMessages = messages.count()
+      metrics.update(new PregelIterationMetrics(activeMessages))
 
       logInfo("Pregel finished iteration " + i)
 

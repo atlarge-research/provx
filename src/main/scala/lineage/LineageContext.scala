@@ -11,7 +11,7 @@ object LineageContext {
 
   private var lineageDir: Option[String] = None
 
-  private var checkpointingEnabled = true
+  private var checkpointingEnabled = false
 
   def setLineageDir(sparkContext: SparkContext, directory: String): Unit = {
     lineageDir = Option(directory).map { dir =>
@@ -20,13 +20,14 @@ object LineageContext {
       fs.mkdirs(path)
       fs.getFileStatus(path).getPath.toString
     }
+    checkpointingEnabled = true
   }
 
   def disableCheckpointing(): Unit = {
     checkpointingEnabled = false
   }
 
-  def isCheckpointingEnabled(): Boolean = {
+  def isCheckpointingEnabled: Boolean = {
     checkpointingEnabled
   }
 

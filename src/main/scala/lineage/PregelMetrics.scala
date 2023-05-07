@@ -10,7 +10,7 @@ class PregelMetrics {
   var iterations: List[PregelIterationMetrics] = List.empty
 
   def getIterations(): List[PregelIterationMetrics] = iterations
-  def updateMetrics(metrics: PregelIterationMetrics): Unit = {
+  def update(metrics: PregelIterationMetrics): Unit = {
     iterations = iterations :+ metrics
   }
 
