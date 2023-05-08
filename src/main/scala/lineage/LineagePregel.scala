@@ -21,10 +21,14 @@ object LineagePregel extends Logging {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0," +
       s" but got ${maxIterations}")
 
-    val checkpointer = new GraphCheckpointer[VD, ED](pruneLineage, sampleFraction)
 
     var g = graph.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
-//    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
+
+    val checkpointer = new GraphCheckpointer[VD, ED](
+      g.vertices.sparkContext,
+      pruneLineage, sampleFraction
+    )
+    //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
 //      checkpointInterval, graph.vertices.sparkContext)
 //    graphCheckpointer.update(g)
 

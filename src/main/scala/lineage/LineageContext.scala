@@ -1,10 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import java.util.UUID
-
 import org.apache.hadoop.fs.Path
-
 import org.apache.spark.SparkContext
 
 object LineageContext {
@@ -14,15 +11,19 @@ object LineageContext {
   private var checkpointingEnabled = false
 
   def setLineageDir(sparkContext: SparkContext, directory: String): Unit = {
-    lineageDir = Option(directory).map { dir =>
-      val path = new Path(dir, UUID.randomUUID().toString)
-      val fs = path.getFileSystem(sparkContext.hadoopConfiguration)
-      fs.mkdirs(path)
-      fs.getFileStatus(path).getPath.toString
+    lineageDir = Option(directory).map { _ =>
+      val ldir = new Path(directory)
+      val fs = ldir.getFileSystem(sparkContext.hadoopConfiguration)
+      require(fs.exists(ldir))
+      fs.getFileStatus(ldir).getPath.toString
     }
     checkpointingEnabled = true
   }
 
+  def enableCheckpointing(): Unit = {
+    require(lineageDir.isDefined, "Lineage directory is not defined.")
+    checkpointingEnabled = true
+  }
   def disableCheckpointing(): Unit = {
     checkpointingEnabled = false
   }
