@@ -2,16 +2,22 @@ package lu.magalhaes.gilles.provxlib
 package utils
 
 import org.apache.commons.configuration.{Configuration, ConfigurationException, PropertiesConfiguration}
+import org.apache.hadoop.conf.{Configuration => HadoopConfiguration}
+import org.apache.hadoop.fs.Path
 
-class GraphalyticsConfiguration(path: String) {
+class GraphalyticsConfiguration(hadoopConfig: HadoopConfiguration, path: String) {
 
   private val config = load()
   val datasetName = path.split("/").last.split("\\.").head
   private def load(): Option[Configuration] = {
-    println(s"Loading ${path}")
-    var configuration: Configuration = null
+    val hadoopPath = new Path(path)
+    val fs = hadoopPath.getFileSystem(hadoopConfig)
+    val in = fs.open(hadoopPath)
+    println(s"Loading ${hadoopPath}")
     try {
-      Some(new PropertiesConfiguration(path))
+      val propConfig = new PropertiesConfiguration()
+      propConfig.load(in)
+      Some(propConfig)
     } catch {
       case e: ConfigurationException =>
         println(e)

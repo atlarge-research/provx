@@ -11,12 +11,10 @@ object LineageContext {
   private var checkpointingEnabled = false
 
   def setLineageDir(sparkContext: SparkContext, directory: String): Unit = {
-    lineageDir = Option(directory).map { _ =>
-      val ldir = new Path(directory)
-      val fs = ldir.getFileSystem(sparkContext.hadoopConfiguration)
-      require(fs.exists(ldir))
-      fs.getFileStatus(ldir).getPath.toString
-    }
+    val dir = new Path(directory)
+    val fs = dir.getFileSystem(sparkContext.hadoopConfiguration)
+    println(fs.exists(dir), s"${directory} does not exist.")
+    lineageDir = Some(fs.getFileStatus(dir).getPath.toString)
     checkpointingEnabled = true
   }
 

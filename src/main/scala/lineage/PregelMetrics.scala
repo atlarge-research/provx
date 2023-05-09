@@ -3,11 +3,13 @@ package lineage
 
 import java.io._
 
-class PregelMetrics {
+class PregelMetrics(val lineageDirectory: String) {
 
   lazy val totalMessages = iterations.map(_.getMessageCount()).sum
 
   var iterations: List[PregelIterationMetrics] = List.empty
+
+  def getLineageDirectory(): String = lineageDirectory
 
   def getIterations(): List[PregelIterationMetrics] = iterations
   def update(metrics: PregelIterationMetrics): Unit = {

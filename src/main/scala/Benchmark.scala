@@ -2,7 +2,7 @@ package lu.magalhaes.gilles.provxlib
 
 import lineage.GraphLineage._
 import lineage.{LineageContext, PregelIterationMetrics}
-import utils.GraphalyticsConfiguration
+import utils.{BenchmarkConfig, GraphalyticsConfiguration}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph}
@@ -13,8 +13,8 @@ object Benchmark {
 
   def loadGraph(sc: SparkContext, datasetPathPrefix: String, name: String): (Graph[Unit, Unit], GraphalyticsConfiguration) = {
     // TODO(gm): copy files to HDFS
-    val edgePath = s"file://${datasetPathPrefix}/${name}.e"
-    val vertexPath = s"file://${datasetPathPrefix}/${name}.v"
+    val edgePath = s"${datasetPathPrefix}/${name}.e"
+    val vertexPath = s"${datasetPathPrefix}/${name}.v"
     val edges = sc.textFile(edgePath).map(line => {
       val tokens = line.trim.split("""\s""")
       Edge(tokens(0).toLong, tokens(1).toLong, ())
@@ -25,23 +25,32 @@ object Benchmark {
       (tokens(0).toLong, ())
     })
 
-    val config = new GraphalyticsConfiguration(s"${datasetPathPrefix}/${name}.properties")
+    val config = new GraphalyticsConfiguration(sc.hadoopConfiguration, s"${datasetPathPrefix}/${name}.properties")
 
     (Graph(vertices, edges), config)
   }
 
   def main(args: Array[String]) {
-    require(args.length >= 3, "Args required: <graph dataset path prefix> <metrics results> <lineage directory>")
-    val datasetPathPrefix = args(0) // /var/scratch/gmo520/thesis/benchmark/graphs/xs
-    val metricsPathPrefix = args(1) // /var/scratch/gmo520/thesis/results
-    val lineagePathPrefix = args(2) // /local/gmo520
+    require(args.length >= 1, "Args required: <config>")
+
+    val benchmarkConfig = new BenchmarkConfig(args(0))
+
+    val datasetPathPrefix = benchmarkConfig.datasetPath.get
+    val metricsPathPrefix = benchmarkConfig.metricsPath.get
+    val lineagePathPrefix = benchmarkConfig.lineagePath.get
+
+    println(s"Dataset path: ${datasetPathPrefix}")
+    println(s"Metrics path: ${metricsPathPrefix}")
+    println(s"Lineage path: ${lineagePathPrefix}")
 
     val spark = SparkSession.builder.appName("ProvX benchmark").getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
 
     LineageContext.setLineageDir(spark.sparkContext, lineagePathPrefix)
 
-    for (dataset <- datasets) {
+    benchmarkConfig.graphs.get.foreach(println)
+
+    for (dataset <- benchmarkConfig.graphs.get) {
       val (g, config) = loadGraph(spark.sparkContext, datasetPathPrefix, dataset)
       val gl = g.withLineage()
 
@@ -80,6 +89,7 @@ object Benchmark {
               ))
             }
             run("iterations") = iterationMetadata
+            run("lineageDirectory") = metrics.getLineageDirectory()
           }
 
           run("duration") = ujson.Obj(

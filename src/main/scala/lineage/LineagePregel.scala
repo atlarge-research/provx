@@ -41,7 +41,7 @@ object LineagePregel extends Logging {
 
     checkpointer.save(g)
 
-    val metrics = new PregelMetrics()
+    val metrics = new PregelMetrics(checkpointer.graphLineageDirectory)
 
     // Loop
     var prevG: Graph[VD, ED] = null

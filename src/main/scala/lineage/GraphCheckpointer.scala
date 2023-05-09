@@ -17,6 +17,8 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](
 
   private val uniqueDirectory = UUID.randomUUID().toString
 
+  def graphLineageDirectory: String = uniqueDirectory
+
 
   private def createDirectoryIfRequired(): String = {
     val path = new Path(LineageContext.getLineageDir.get, uniqueDirectory)
@@ -51,7 +53,9 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](
     }
 
     if (LineageContext.isCheckpointingEnabled) {
-      vertices.saveAsTextFile(f"${lineagePath}/${iteration}%04d.v")
+      val path = f"${lineagePath}/${iteration}%04d.v"
+      println(s"Saving data to ${path}")
+      vertices.saveAsTextFile(path)
       iteration += 1
     }
   }
