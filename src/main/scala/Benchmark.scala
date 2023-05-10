@@ -12,7 +12,6 @@ object Benchmark {
   val datasets = Seq("kgs", "wiki-Talk")
 
   def loadGraph(sc: SparkContext, datasetPathPrefix: String, name: String): (Graph[Unit, Unit], GraphalyticsConfiguration) = {
-    // TODO(gm): copy files to HDFS
     val edgePath = s"${datasetPathPrefix}/${name}.e"
     val vertexPath = s"${datasetPathPrefix}/${name}.v"
     val edges = sc.textFile(edgePath).map(line => {
@@ -33,15 +32,19 @@ object Benchmark {
   def main(args: Array[String]) {
     require(args.length >= 1, "Args required: <config>")
 
+    val totalStartTime = System.nanoTime()
+
     val benchmarkConfig = new BenchmarkConfig(args(0))
 
     val datasetPathPrefix = benchmarkConfig.datasetPath.get
     val metricsPathPrefix = benchmarkConfig.metricsPath.get
     val lineagePathPrefix = benchmarkConfig.lineagePath.get
+    val outputPath = benchmarkConfig.outputPath.get
 
     println(s"Dataset path: ${datasetPathPrefix}")
     println(s"Metrics path: ${metricsPathPrefix}")
     println(s"Lineage path: ${lineagePathPrefix}")
+    println(s"Output  path: ${outputPath}")
 
     val spark = SparkSession.builder.appName("ProvX benchmark").getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
@@ -97,6 +100,10 @@ object Benchmark {
             "unit" -> "ns"
           )
 
+          val postfix = if (saveMetadata) { "-lineage" } else { "" }
+
+          g.vertices.saveAsTextFile(s"${outputPath}/${algorithm}-${dataset}${postfix}.txt")
+
           run
         }
 
@@ -105,9 +112,12 @@ object Benchmark {
         LineageContext.enableCheckpointing()
         results("with-lineage") = runAlgorithm(saveMetadata = true)
 
-
         os.write(os.Path(s"${metricsPathPrefix}/${algorithm}-${dataset}.json"), results)
       }
     }
+
+    val totalEndTime = System.nanoTime()
+    val elapsedTime = totalEndTime - totalStartTime
+    println(f"Benchmark took ${elapsedTime / 10e9}%.2fs")
   }
 }

@@ -17,5 +17,7 @@ libraryDependencies ++= Seq(
 //  "commons-beanutils" % "commons-beanutils" % "1.9.4",
 //  "org.apache.commons" % "commons-text" % "1.10.0",
   "com.lihaoyi" %% "upickle" % "3.1.0",
-  "com.lihaoyi" %% "os-lib" % "0.9.1"
+  "com.lihaoyi" %% "os-lib" % "0.9.1",
+//  "org.scalactic" %% "scalactic" % "3.2.15",
+  "org.scalatest" %% "scalatest" % "3.2.15" % "test"
 )

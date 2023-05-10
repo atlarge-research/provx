@@ -21,11 +21,13 @@ class BenchmarkConfig(path: String) {
 //  val metricsPathPrefix = args(1) // /var/scratch/gmo520/thesis/results
 //  val lineagePathPrefix = args(2) // /local/gmo520
 
-  def datasetPath: Option[String] = getString(s"benchmark.datasetPath")
+  def datasetPath: Option[String] = getString("benchmark.datasetPath")
 
-  def metricsPath: Option[String] = getString(s"benchmark.metricsPath")
+  def metricsPath: Option[String] = getString("benchmark.metricsPath")
 
-  def lineagePath: Option[String] = getString(s"benchmark.lineagePath")
+  def lineagePath: Option[String] = getString("benchmark.lineagePath")
+
+  def outputPath: Option[String] = getString("benchmark.outputPath")
 
   def graphs: Option[Array[String]] = getStringArray("benchmark.graphs")
 
