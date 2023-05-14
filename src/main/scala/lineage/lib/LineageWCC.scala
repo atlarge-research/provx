@@ -29,7 +29,7 @@ object LineageWCC {
 
     val initialMessage = Long.MaxValue
     val pregelGraph = LineagePregel(ccGraph, initialMessage,
-      maxIterations, EdgeDirection.Either)(
+      maxIterations, EdgeDirection.Out)(
       vprog = (id, attr, msg) => math.min(attr, msg),
       sendMsg = sendMessage,
       mergeMsg = (a, b) => math.min(a, b))

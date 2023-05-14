@@ -41,40 +41,36 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
         if (expected._2 == Double.PositiveInfinity || actual._2 == Double.PositiveInfinity) {
           assert(expected._2 == actual._2)
         } else {
-          assert(math.abs(expected._2 - actual._2) < 1e-5)
+          assert(math.abs(expected._2 - actual._2) < 1e-7)
         }
       })
     }
   }
 
-//  test("WCC") {
+  // OK
+  test("WCC") {
+    withSpark { sc =>
+      val (gl, expectedOutputPath) = loadTestGraph(sc, "WCC")
+      val actualResult = gl.wcc().getGraph().vertices.collect().sortWith(_._1 < _._1)
+      val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
+
+      assert(actualResult sameElements expectedResult)
+    }
+  }
+
+  //  test("PageRank") {
 //    withSpark { sc =>
-//      val (graph, _) = Benchmark.loadGraph(
-//        sc, "/Users/gm/vu/thesis/impl/provxlib/src/test/resources",
-//        "example-directed"
-//      )
-//      val gl = new GraphLineage(graph)
-//      val actualResult = gl.wcc().getGraph().vertices.collect().sortWith(_._1 < _._1)
-//      val expectedResult = GraphalyticsOutputReader.readFloat(s"${exampleInputPrefix}-BFS")
+//      val (gl, expectedOutputPath) = loadTestGraph(sc, "PR")
+//      val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
+//      val actualResult = gl.pageRank(3)
+//        .getGraph()
+//        .vertices
+//        .collect()
+//        .sortWith(_._1 < _._1)
 //
-//      actualResult.foreach(println)
-//      println("---")
 //      expectedResult.foreach(println)
-//
-//      assert(actualResult sameElements expectedResult)
-//    }
-//  }
-//
-//  test("PageRank") {
-//    withSpark { sc =>
-//      val (graph, _) = Benchmark.loadGraph(
-//        sc, "/Users/gm/vu/thesis/impl/provxlib/src/test/resources",
-//        "example-directed"
-//      )
-////      val results = graph.withLineage().pageRank(numIter = 2)
-//      graph.staticPageRank(2).vertices.collect().sortWith(_._1 < _._1).foreach(println)
-//
-//      // graph.pageRank()results.getGraph().vertices.collect().sortWith(_._1 < _._1).foreach(println)
+//      println("---")
+//      actualResult.foreach(println)
 //    }
 //  }
 

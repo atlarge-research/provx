@@ -21,16 +21,11 @@ class GraphLineage[VD: ClassTag, ED: ClassTag]
 
   // TODO: add actual provenance graph that can be exported
 
-  def pageRank(tol: Double = 0.01, resetProb: Double = 0.15,
-       numIter: Int = Int.MaxValue): GraphLineage[Double, Double] = {
-    // scalastyle:off println
-    println("Using lineage-enabled PageRank.")
-    // scalastyle:on println
-
+  def pageRank(numIter: Int, dampingFactor: Double = 0.85): GraphLineage[Double, Unit] = {
     val (g, pregelMetrics) = LineagePageRank.run(
-      graph, tol, numIter = numIter, resetProb = resetProb
+      graph, numIter, dampingFactor = dampingFactor
     )
-    new GraphLineage[Double, Double](g, Some(pregelMetrics))
+    new GraphLineage[Double, Unit](g, Some(pregelMetrics))
   }
 
   def bfs(sourceVertex: VertexId): GraphLineage[Long, ED] = {
