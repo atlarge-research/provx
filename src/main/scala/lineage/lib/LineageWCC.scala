@@ -8,7 +8,7 @@ import org.apache.spark.graphx._
 import scala.reflect.ClassTag
 
 /** Connected components algorithm. */
-object LineageCC {
+object LineageWCC {
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], maxIterations: Int = Int.MaxValue):
     (Graph[VertexId, ED], PregelMetrics) =
   {

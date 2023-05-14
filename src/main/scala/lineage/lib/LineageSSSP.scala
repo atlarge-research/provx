@@ -12,13 +12,13 @@ object LineageSSSP {
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], source: VertexId):
       (Graph[Double, Double], PregelMetrics) = {
     val ssspGraph = graph.mapVertices((vid, _) => {
-      if (vid == source) {
-        0.0
-      } else {
-        Double.PositiveInfinity
-      }
-    })
-      .mapEdges(_ => 0.0)
+        if (vid == source) {
+          0.0
+        } else {
+          Double.PositiveInfinity
+        }
+      })
+      .mapEdges(x => x.attr.toString.toDouble)
       .cache()
 
     def vertexProgram(id: VertexId, oldValue: Double, message: Double): Double = {

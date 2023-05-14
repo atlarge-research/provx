@@ -38,8 +38,9 @@ class GraphLineage[VD: ClassTag, ED: ClassTag]
     new GraphLineage[Long, ED](g, Some(pregelMetrics))
   }
 
-  def connectedComponents(): GraphLineage[VD, ED] = {
-    new GraphLineage[VD, ED](graph)
+  def wcc(maxIterations: Int = Int.MaxValue): GraphLineage[VertexId, ED] = {
+    val (g, pregelMetrics) = LineageWCC.run(graph, maxIterations = maxIterations)
+    new GraphLineage[VertexId, ED](g, Some(pregelMetrics))
   }
 
   def sssp(source: VertexId): GraphLineage[Double, Double] = {
