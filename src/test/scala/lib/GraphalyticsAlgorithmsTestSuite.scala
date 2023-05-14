@@ -58,20 +58,27 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     }
   }
 
-  //  test("PageRank") {
-//    withSpark { sc =>
-//      val (gl, expectedOutputPath) = loadTestGraph(sc, "PR")
-//      val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
-//      val actualResult = gl.pageRank(3)
-//        .getGraph()
-//        .vertices
-//        .collect()
-//        .sortWith(_._1 < _._1)
-//
-//      expectedResult.foreach(println)
-//      println("---")
-//      actualResult.foreach(println)
-//    }
-//  }
+  // OK
+  test("PageRank") {
+    withSpark { sc =>
+      val (gl, expectedOutputPath) = loadTestGraph(sc, "PR")
+      val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
+      val actualResult = gl.pageRank(2)
+        .getGraph()
+        .vertices
+        .collect()
+        .sortWith(_._1 < _._1)
+
+      expectedResult.zip(actualResult).foreach(v => {
+        val (expected, actual) = v
+        assert(expected._1 == actual._1)
+        if (expected._2 == Double.PositiveInfinity || actual._2 == Double.PositiveInfinity) {
+          assert(expected._2 == actual._2)
+        } else {
+          assert(math.abs(expected._2 - actual._2) < 1e-8)
+        }
+      })
+    }
+  }
 
 }

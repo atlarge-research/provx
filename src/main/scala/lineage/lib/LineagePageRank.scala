@@ -5,6 +5,7 @@ import lineage.{LineagePregel, PregelMetrics}
 
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
+import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
@@ -18,7 +19,7 @@ object LineagePageRank extends Logging {
   {
     val vertexCount = graph.numVertices
 
-    val pagerankGraph: Graph[Double, Double] = graph
+    var workGraph: Graph[Double, Double] = graph
       // Associate the degree with each vertex
       .outerJoinVertices(graph.outDegrees) {
         (_, _, deg) => deg.getOrElse(0)
@@ -28,27 +29,37 @@ object LineagePageRank extends Logging {
       .mapVertices { (_, _) => 1.0 / vertexCount }
       .cache()
 
-    // Define the three functions needed to implement PageRank in the GraphX
-    // version of Pregel
-    def vertexProgram(id: VertexId, oldPR: Double, msgSum: Double): Double = {
-      (1.0 - dampingFactor) / vertexCount + dampingFactor * (msgSum + oldPR / vertexCount)
+    val danglingVertices = workGraph.vertices.minus(
+      workGraph.outDegrees.mapValues(_ => 0.0)
+    ).cache()
+
+    // TODO: add lineage graph to pagerank
+
+    var iteration = 0
+    while (iteration < numIter) {
+      val prevGraph = workGraph
+
+      val sumOfValues = workGraph.aggregateMessages[Double](ctx => ctx.sendToDst(ctx.srcAttr * ctx.attr),
+        _ + _, TripletFields.Src)
+
+      // Compute the sum of all PageRank values of "dangling nodes" in the graph
+      val danglingSum = workGraph.vertices.innerJoin(danglingVertices)((_, value, _) => value)
+        .aggregate(0.0)((sum, vertexPair) => sum + vertexPair._2, _ + _)
+
+      // Compute the new PageRank value of all nodes
+      workGraph = workGraph.outerJoinVertices(sumOfValues)((_, _, newSumOfValues) =>
+        (1 - dampingFactor) / vertexCount +
+          dampingFactor * (newSumOfValues.getOrElse(0.0) + danglingSum / vertexCount)).cache()
+
+      // Materialise the working graph
+      workGraph.vertices.count()
+      workGraph.edges.count()
+      // Unpersist the previous cached graph
+      prevGraph.unpersist(false)
+
+      iteration += 1
     }
 
-    def sendMessage(edge: EdgeTriplet[Double, Double]): Iterator[(VertexId, Double)] =
-      Iterator((edge.dstId, edge.srcAttr * edge.attr))
-
-    def messageCombiner(a: Double, b: Double): Double = a + b
-
-    // The initial message received by all vertices in PageRank
-    val initialMessage = 1.0 / vertexCount
-
-    val (rankGraph, metrics) = LineagePregel(
-      pagerankGraph, initialMessage, activeDirection = EdgeDirection.Out,
-      maxIterations = numIter,
-      sampleFraction = sampleFraction
-    )(
-      vertexProgram, sendMessage, messageCombiner)
-
-    (rankGraph.mapEdges(_ => Unit), metrics)
+    (workGraph.mapEdges(_ => Unit), new PregelMetrics(""))
   }
 }
