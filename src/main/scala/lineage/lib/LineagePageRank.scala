@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.lib
 
-import lineage.{LineagePregel, PregelMetrics}
+import lineage.{GraphCheckpointer, LineagePregel, PregelIterationMetrics, PregelMetrics}
 
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
@@ -33,6 +33,11 @@ object LineagePageRank extends Logging {
       workGraph.outDegrees.mapValues(_ => 0.0)
     ).cache()
 
+    val checkpointer = new GraphCheckpointer[Double, Double](graph.vertices.sparkContext, sampleFraction = sampleFraction)
+    val metrics = new PregelMetrics(checkpointer.graphLineageDirectory)
+
+    checkpointer.save(workGraph)
+
     // TODO: add lineage graph to pagerank
 
     var iteration = 0
@@ -51,15 +56,21 @@ object LineagePageRank extends Logging {
         (1 - dampingFactor) / vertexCount +
           dampingFactor * (newSumOfValues.getOrElse(0.0) + danglingSum / vertexCount)).cache()
 
+
       // Materialise the working graph
-      workGraph.vertices.count()
+      val vertices = workGraph.vertices.count()
       workGraph.edges.count()
+
+      metrics.update(new PregelIterationMetrics(vertices))
+
+      checkpointer.save(workGraph)
+
       // Unpersist the previous cached graph
       prevGraph.unpersist(false)
 
       iteration += 1
     }
 
-    (workGraph.mapEdges(_ => Unit), new PregelMetrics(""))
+    (workGraph.mapEdges(_ => Unit), metrics)
   }
 }

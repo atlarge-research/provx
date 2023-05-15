@@ -31,6 +31,18 @@ class BenchmarkConfig(path: String) {
 
   def graphs: Option[Array[String]] = getStringArray("benchmark.graphs")
 
+  def repetitions: Option[Int] = getInt("benchmark.repetitions")
+
+
+  def algorithms: Option[Array[String]] = getStringArray("benchmark.algorithms").map(_.map(_.toLowerCase))
+
+  private def getInt(key: String): Option[Int] = {
+    try {
+      Some(config.get.getInt(key))
+    } catch {
+      case _: Throwable => None
+    }
+  }
 
   private def getString(key: String): Option[String] = {
     try {

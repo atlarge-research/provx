@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 
 import lineage.GraphLineage._
-import lineage.{LineageContext, PregelIterationMetrics}
+import lineage.LineageContext
 import utils.{BenchmarkConfig, GraphalyticsConfiguration}
 
 import org.apache.spark.SparkContext
@@ -11,11 +11,18 @@ import org.apache.spark.sql.SparkSession
 object Benchmark {
 
   def loadGraph(sc: SparkContext, datasetPathPrefix: String, name: String): (Graph[Unit, Double], GraphalyticsConfiguration) = {
+    val config = new GraphalyticsConfiguration(sc.hadoopConfiguration, s"${datasetPathPrefix}/${name}.properties")
+
     val edgePath = s"${datasetPathPrefix}/${name}.e"
     val vertexPath = s"${datasetPathPrefix}/${name}.v"
+
     val edges = sc.textFile(edgePath).map(line => {
       val tokens = line.trim.split("""\s""")
-      Edge(tokens(0).toLong, tokens(1).toLong, tokens(2).toDouble)
+      if (tokens.length == 3) {
+        Edge(tokens(0).toLong, tokens(1).toLong, tokens(2).toDouble)
+      } else {
+        Edge(tokens(0).toLong, tokens(1).toLong, 0.0)
+      }
     })
 
     val vertices = sc.textFile(vertexPath).map(line => {
@@ -23,13 +30,11 @@ object Benchmark {
       (tokens(0).toLong, ())
     })
 
-    val config = new GraphalyticsConfiguration(sc.hadoopConfiguration, s"${datasetPathPrefix}/${name}.properties")
-
     (Graph(vertices, edges), config)
   }
 
   def main(args: Array[String]) {
-    require(args.length >= 4, "Args required: <config> <algorithm> <dataset> <lineage|no-lineage>")
+    require(args.length >= 5, "Args required: <config> <algorithm> <dataset> <lineage|no-lineage>")
 
     val totalStartTime = System.nanoTime()
 
@@ -37,6 +42,7 @@ object Benchmark {
     val algorithm = args(1)
     val dataset = args(2)
     val lineageOption = args(3) == "lineage"
+    val runNr = args(4).toInt
 
     val benchmarkConfig = new BenchmarkConfig(configPath)
 
@@ -49,9 +55,10 @@ object Benchmark {
     println(s"Metrics path: ${metricsPathPrefix}")
     println(s"Lineage path: ${lineagePathPrefix}")
     println(s"Output  path: ${outputPath}")
+    println(s"Run number: ${runNr}")
 
     val spark = SparkSession.builder
-      .appName(s"ProvX ${algorithm}/${dataset}/${lineageOption} benchmark")
+      .appName(s"ProvX ${algorithm}/${dataset}/${if (lineageOption) true else false}/${runNr} benchmark")
       .getOrCreate()
 
     LineageContext.setLineageDir(spark.sparkContext, lineagePathPrefix)
@@ -78,7 +85,7 @@ object Benchmark {
     }
     val endTime = System.nanoTime()
     val elapsedTime = endTime - startTime
-    println(f"Took ${elapsedTime / 10e9}%.2fs")
+    println(f"Took ${elapsedTime / 1e9}%.2fs")
 
     val run = ujson.Obj()
     val iterationMetadata = ujson.Arr()
@@ -101,18 +108,24 @@ object Benchmark {
     )
 
     val postfix = if (lineageOption) { "-lineage" } else { "" }
-    g.vertices.saveAsTextFile(s"${outputPath}/${algorithm}-${dataset}${postfix}.txt")
+    g.vertices.saveAsTextFile(s"${outputPath}/run-${runNr}/${algorithm}-${dataset}${postfix}.txt")
 
     val results = ujson.Obj(
       "algorithm" -> algorithm,
       "graph" -> dataset,
       "lineage" -> lineageOption,
+      "runNr" -> runNr,
       "metadata" -> run
     )
 
-    os.write(os.Path(s"${metricsPathPrefix}/${algorithm}-${dataset}${postfix}.json"), results)
+    val runDir = os.Path(s"${metricsPathPrefix}/run-${runNr}")
+    if (!os.exists(runDir)) {
+      os.makeDir(runDir)
+    }
+
+    os.write(os.Path(s"${metricsPathPrefix}/run-${runNr}/${algorithm}-${dataset}${postfix}.json"), results)
 
     val totalEndTime = System.nanoTime()
-    println(f"Benchmark run took ${(totalEndTime - totalStartTime) / 10e9}%.2fs")
+    println(f"Benchmark run took ${(totalEndTime - totalStartTime) / 1e9}%.2fs")
   }
 }

@@ -5,6 +5,8 @@ import org.apache.commons.configuration.{Configuration, ConfigurationException, 
 import org.apache.hadoop.conf.{Configuration => HadoopConfiguration}
 import org.apache.hadoop.fs.Path
 
+import java.net.URL
+
 class GraphalyticsConfiguration(hadoopConfig: HadoopConfiguration, path: String) {
 
   private val config = load()
@@ -28,7 +30,10 @@ class GraphalyticsConfiguration(hadoopConfig: HadoopConfiguration, path: String)
   def algorithms(): Option[Array[String]] = {
     require(config.isDefined, "Configuration parsing failed")
     try {
-      Some(config.get.getStringArray(s"graph.${datasetName}.algorithms"))
+      val value = config.get.getStringArray(s"graph.${datasetName}.algorithms")
+        .map(_.toLowerCase)
+
+      Some(value)
     } catch {
       case _: Throwable => None
     }
