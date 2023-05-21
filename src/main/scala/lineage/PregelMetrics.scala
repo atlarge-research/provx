@@ -5,7 +5,7 @@ import java.io._
 
 class PregelMetrics(val lineageDirectory: String) {
 
-  lazy val totalMessages = iterations.map(_.getMessageCount()).sum
+  lazy val totalMessages = iterations.map(_.messageCount).sum
 
   var iterations: List[PregelIterationMetrics] = List.empty
 
@@ -17,9 +17,10 @@ class PregelMetrics(val lineageDirectory: String) {
   }
 
   def saveAsTextFile(path: String): Unit = {
+    println(s"Writing pregel metrics to file: ${lineageDirectory}")
     val pw = new PrintWriter(new File(path))
     for ((iterationMetrics: PregelIterationMetrics, idx: Int) <- iterations.zipWithIndex) {
-      pw.write(s"${idx}\t${iterationMetrics.getMessageCount()}\n")
+      pw.write(s"${idx}\t${iterationMetrics.messageCount}\n")
     }
     pw.close()
   }

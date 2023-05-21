@@ -19,7 +19,6 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](
 
   def graphLineageDirectory: String = uniqueDirectory
 
-
   private def createDirectoryIfRequired(): String = {
     val path = new Path(LineageContext.getLineageDir.get, uniqueDirectory)
     val fs = path.getFileSystem(sparkContext.hadoopConfiguration)

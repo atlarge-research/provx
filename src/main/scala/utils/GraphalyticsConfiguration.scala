@@ -5,8 +5,6 @@ import org.apache.commons.configuration.{Configuration, ConfigurationException, 
 import org.apache.hadoop.conf.{Configuration => HadoopConfiguration}
 import org.apache.hadoop.fs.Path
 
-import java.net.URL
-
 class GraphalyticsConfiguration(hadoopConfig: HadoopConfiguration, path: String) {
 
   private val config = load()
@@ -39,23 +37,21 @@ class GraphalyticsConfiguration(hadoopConfig: HadoopConfiguration, path: String)
     }
   }
 
-  private def checks(algorithm: String) = {
+  def withCheck[T](algorithm: String, f: Configuration => T): T = {
     require(config.isDefined, "Configuration parsing failed")
     require(algorithms().isDefined && algorithms().get.contains(algorithm))
+    f(config.get)
   }
 
-  def bfsSourceVertex(): Int = {
-    checks("bfs")
-    config.get.getInt(s"graph.${datasetName}.bfs.source-vertex")
-  }
+  def bfsSourceVertex(): Int = withCheck("bfs", c => {
+    ConfigurationUtils.getInt(c, s"graph.${datasetName}.bfs.source-vertex")
+  }).get
 
-  def pageRankIterations(): Int = {
-    checks("pr")
-    config.get.getInt(s"graph.${datasetName}.pr.num-iterations")
-  }
+  def pageRankIterations(): Int = withCheck("pr", c => {
+    ConfigurationUtils.getInt(c, s"graph.${datasetName}.pr.num-iterations")
+  }).get
 
-  def ssspSourceVertex(): Long = {
-    checks("sssp")
-    config.get.getInt(s"graph.${datasetName}.sssp.source-vertex")
-  }
+  def ssspSourceVertex(): Long = withCheck("sssp", c => {
+    ConfigurationUtils.getInt(c, s"graph.${datasetName}.sssp.source-vertex")
+  }).get
 }

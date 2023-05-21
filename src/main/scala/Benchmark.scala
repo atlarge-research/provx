@@ -43,18 +43,18 @@ object Benchmark {
     val dataset = args(2)
     val lineageOption = args(3) == "lineage"
     val runNr = args(4).toInt
+    val experimentDir = os.Path(args(5))
 
     val benchmarkConfig = new BenchmarkConfig(configPath)
 
     val datasetPathPrefix = benchmarkConfig.datasetPath.get
-    val metricsPathPrefix = benchmarkConfig.metricsPath.get
     val lineagePathPrefix = benchmarkConfig.lineagePath.get
     val outputPath = benchmarkConfig.outputPath.get
 
-    println(s"Dataset path: ${datasetPathPrefix}")
-    println(s"Metrics path: ${metricsPathPrefix}")
-    println(s"Lineage path: ${lineagePathPrefix}")
-    println(s"Output  path: ${outputPath}")
+    println(s"Dataset     path: ${datasetPathPrefix}")
+    println(s"Experiments path: ${experimentDir}")
+    println(s"Lineage     path: ${lineagePathPrefix}")
+    println(s"Output      path: ${outputPath}")
     println(s"Run number: ${runNr}")
 
     val spark = SparkSession.builder
@@ -95,7 +95,7 @@ object Benchmark {
       for ((iterationMetrics, idx) <- metrics.getIterations().zipWithIndex) {
         iterationMetadata.arr.append(ujson.Obj(
           "idx" -> idx,
-          "messageCount" -> ujson.Num(iterationMetrics.getMessageCount())
+          "messageCount" -> ujson.Num(iterationMetrics.messageCount)
         ))
       }
       run("iterations") = iterationMetadata
@@ -118,12 +118,7 @@ object Benchmark {
       "metadata" -> run
     )
 
-    val runDir = os.Path(s"${metricsPathPrefix}/run-${runNr}")
-    if (!os.exists(runDir)) {
-      os.makeDir(runDir)
-    }
-
-    os.write(os.Path(s"${metricsPathPrefix}/run-${runNr}/${algorithm}-${dataset}${postfix}.json"), results)
+    os.write(experimentDir / s"metrics.json", results)
 
     val totalEndTime = System.nanoTime()
     println(f"Benchmark run took ${(totalEndTime - totalStartTime) / 1e9}%.2fs")

@@ -1,62 +1,38 @@
 package lu.magalhaes.gilles.provxlib
 package utils
 
-import org.apache.commons.configuration.{Configuration, ConfigurationException, PropertiesConfiguration}
-
 class BenchmarkConfig(path: String) {
-  private val config = load()
-  private def load(): Option[Configuration] = {
-    println(s"Loading ${path}")
-    var configuration: Configuration = null
-    try {
-      Some(new PropertiesConfiguration(path))
-    } catch {
-      case e: ConfigurationException =>
-        println(e)
-        None
-    }
-  }
+  private val config = ConfigurationUtils.load(path)
 
-//  val datasetPathPrefix = args(0) // /var/scratch/gmo520/thesis/benchmark/graphs/xs
-//  val metricsPathPrefix = args(1) // /var/scratch/gmo520/thesis/results
-//  val lineagePathPrefix = args(2) // /local/gmo520
+  // Inputs
+  // Where the graphs are stored on HDFS
+  def datasetPath: Option[String] =
+    ConfigurationUtils.getString(config.get, "benchmark.datasetPath")
 
-  def datasetPath: Option[String] = getString("benchmark.datasetPath")
+  // Algorithms to run (BFS, PR, WCC, SSP, LCC, PR)
+  def algorithms: Option[Array[String]] =
+    ConfigurationUtils.getStringArray(config.get, "benchmark.algorithms")
+      .map(_.map(_.toLowerCase))
 
-  def metricsPath: Option[String] = getString("benchmark.metricsPath")
+  // Where to store metrics and Spark logs
+  def experimentsPath: Option[String] =
+    ConfigurationUtils.getString(config.get, "benchmark.experimentsPath")
 
-  def lineagePath: Option[String] = getString("benchmark.lineagePath")
+  // Name of the graphs to run experiments for
+  def graphs: Option[Array[String]] =
+    ConfigurationUtils.getStringArray(config.get, "benchmark.graphs")
 
-  def outputPath: Option[String] = getString("benchmark.outputPath")
+  // Number of repetitions for algorithm and dataset combination
+  def repetitions: Option[Int] =
+    ConfigurationUtils.getInt(config.get, "benchmark.repetitions")
 
-  def graphs: Option[Array[String]] = getStringArray("benchmark.graphs")
+  // Outputs (HDFS)
+  // Where to store the lineage information
+  def lineagePath: Option[String] =
+    ConfigurationUtils.getString(config.get, "benchmark.lineagePath")
 
-  def repetitions: Option[Int] = getInt("benchmark.repetitions")
+  // Where to store the output of the graph algorithm
+  def outputPath: Option[String] =
+    ConfigurationUtils.getString(config.get, "benchmark.outputPath")
 
-
-  def algorithms: Option[Array[String]] = getStringArray("benchmark.algorithms").map(_.map(_.toLowerCase))
-
-  private def getInt(key: String): Option[Int] = {
-    try {
-      Some(config.get.getInt(key))
-    } catch {
-      case _: Throwable => None
-    }
-  }
-
-  private def getString(key: String): Option[String] = {
-    try {
-      Some(config.get.getString(key))
-    } catch {
-      case _: Throwable => None
-    }
-  }
-
-  private def getStringArray(key: String): Option[Array[String]] = {
-    try {
-      Some(config.get.getStringArray(key))
-    } catch {
-      case _: Throwable => None
-    }
-  }
 }
