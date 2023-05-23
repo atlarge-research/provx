@@ -1,0 +1,12 @@
+clean:
+  rm -fr plots data
+  mkdir plots data
+
+fetch:
+  #!/usr/bin/env bash
+  function dcp() {
+    bash /Users/gm/.ssh/vu/pass.sh > /dev/null && SSH_ASKPASS=/Users/gm/.ssh/vu/pass.sh SSH_ASKPASS_REQUIRE=force scp $@
+  }
+  dcp -r das:/var/scratch/gmo520/thesis/experiments data
+  dcp -r das:provx-run/checkpoint_sizes.txt data
+  dcp -r das:provx-run/output_sizes.txt data

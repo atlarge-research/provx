@@ -1,0 +1,53 @@
+@env:
+	echo 'export JAVA_HOME="/usr/lib/jvm/jre-1.8.0/"' > env
+	cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
+	echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
+	echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+
+copy: env
+	#!/usr/bin/env bash
+	source ./env
+	hadoop fs -mkdir -p /graphs
+	hadoop fs -copyFromLocal /var/scratch/gmo520/thesis/benchmark/graphs/xs /graphs/xs
+	hadoop fs -copyFromLocal /var/scratch/gmo520/thesis/benchmark/graphs/s /graphs/s
+
+clean: env
+	#!/usr/bin/env bash
+	source ./env
+	dirs=(
+	  /user/$USER/checkpoints
+	  /user/$USER/results
+	  /user/$USER/output
+	)
+	for dir in ${dirs[@]}; do
+	  hadoop fs -rm -r -f $dir
+	  hadoop fs -mkdir -p $dir
+	done
+	rm -rf /var/scratch/$USER/thesis/experiments
+
+setup: clean copy
+
+bench: env
+	#!/usr/bin/env bash
+	source ./env
+	spark-submit --class lu.magalhaes.gilles.provxlib.BenchmarkRunner provxlib-assembly-0.1.0-SNAPSHOT.jar /home/gmo520/provx-run/config.properties | tee > runner-output.txt
+
+sizes: env
+	#!/usr/bin/env bash
+	source ./env
+	ids=$(find /var/scratch/gmo520/thesis/experiments -name 'metrics.json' | xargs jq -r '.metadata.lineageDirectory' | grep -v 'null')
+
+	rm -f checkpoint_sizes.txt output_sizes.txt
+	touch checkpoint_sizes.txt output_sizes.txt
+
+	echo $ids
+	for id in $ids; do
+		hadoop fs -du -s /user/gmo520/checkpoints/$id >> checkpoint_sizes.txt
+		hadoop fs -du -s '/user/gmo520/checkpoints/'$id'/*' >> checkpoint_sizes.txt
+	done
+
+	runs=$(hadoop fs -ls /user/gmo520/output | awk '{ print $8 }')
+	echo $runs
+	for run in $runs; do
+		hadoop fs -du $run >> output_sizes.txt
+	done
