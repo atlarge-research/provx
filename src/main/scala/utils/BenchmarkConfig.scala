@@ -35,4 +35,7 @@ class BenchmarkConfig(path: String) {
   def outputPath: Option[String] =
     ConfigurationUtils.getString(config.get, "benchmark.outputPath")
 
+  def sparkLogs: Option[String] =
+    ConfigurationUtils.getString(config.get, "benchmark.spark-logs")
+
 }

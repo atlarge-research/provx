@@ -2,7 +2,7 @@ package lu.magalhaes.gilles.provxlib
 
 import lineage.GraphLineage._
 import lineage.LineageContext
-import utils.{BenchmarkConfig, GraphalyticsConfiguration}
+import utils.{BenchmarkConfig, GraphalyticsConfiguration, TimeUtils}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph}
@@ -85,7 +85,7 @@ object Benchmark {
     }
     val endTime = System.nanoTime()
     val elapsedTime = endTime - startTime
-    println(f"Took ${elapsedTime / 1e9}%.2fs")
+    println(s"Took ${TimeUtils.formatNanoseconds(elapsedTime)}")
 
     val run = ujson.Obj()
     val iterationMetadata = ujson.Arr()
@@ -111,6 +111,7 @@ object Benchmark {
     g.vertices.saveAsTextFile(s"${outputPath}/run-${runNr}/${algorithm}-${dataset}${postfix}.txt")
 
     val results = ujson.Obj(
+      "applicationId" -> spark.sparkContext.applicationId,
       "algorithm" -> algorithm,
       "graph" -> dataset,
       "lineage" -> lineageOption,
@@ -120,7 +121,7 @@ object Benchmark {
 
     os.write(experimentDir / s"metrics.json", results)
 
-    val totalEndTime = System.nanoTime()
-    println(f"Benchmark run took ${(totalEndTime - totalStartTime) / 1e9}%.2fs")
+    val totalTime = System.nanoTime() - totalStartTime
+    println(s"Benchmark run took ${TimeUtils.formatNanoseconds(totalTime)}")
   }
 }

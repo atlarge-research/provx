@@ -1,13 +1,12 @@
 package lu.magalhaes.gilles.provxlib
 
-import utils.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig, PushoverNotifier}
+import utils.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig, PushoverNotifier, TimeUtils}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.launcher.SparkLauncher
 
 import java.io.File
 import java.util.UUID
-import scala.concurrent.duration._
 
 object BenchmarkRunner {
 
@@ -27,6 +26,7 @@ object BenchmarkRunner {
     val experimentsPath = os.Path(benchmarkConfig.experimentsPath.get)
     val lineagePathPrefix = benchmarkConfig.lineagePath.get
     val outputPath = benchmarkConfig.outputPath.get
+    val sparkLogsDir = benchmarkConfig.sparkLogs.get
 
     if (os.exists(experimentsPath)) {
       println("Aborting benchmark. Experiments directory exists.")
@@ -87,6 +87,8 @@ object BenchmarkRunner {
           .redirectOutput(outputFile)
           .redirectError(errorFile)
           .setSparkHome("/home/gmo520/bin/spark-3.2.2-bin-hadoop3.2")
+          .setConf("spark.eventLog.enabled", "true")
+          .setConf("spark.eventLog.dir", sparkLogsDir)
           .setVerbose(true)
           .launch()
         currentApp = Some(app)
@@ -96,12 +98,12 @@ object BenchmarkRunner {
           println(s"Error occured: exit code ${app.exitValue()}")
           return 1
         } else {
-          val runTime = (System.nanoTime() - startTime) / 1e9
+          val runTime = System.nanoTime() - startTime
           val lineageStatus = if (withLineage) 1 else 0
           PushoverNotifier.notify(
             notificationsConfig,
             s"ProvX bench: ${algorithm}/${dataset}/${lineageStatus}/${runNr}",
-            f"Took ${runTime}%.2fs"
+            f"Took ${TimeUtils.formatNanoseconds(runTime)}"
           )
         }
       }
