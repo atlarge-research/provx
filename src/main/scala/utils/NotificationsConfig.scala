@@ -2,12 +2,10 @@ package lu.magalhaes.gilles.provxlib
 package utils
 
 class NotificationsConfig(path: String) {
-  private val config = ConfigurationUtils.load(path)
+  private val config = SafeConfiguration.fromLocalPath(path).get
 
-  def token: Option[String] =
-    ConfigurationUtils.getString(config.get, "notifications.token")
+  def token: String = config.getString("notifications.token").get
 
-  def user: Option[String] =
-    ConfigurationUtils.getString(config.get, "notifications.user")
+  def user: String = config.getString("notifications.user").get
 
 }

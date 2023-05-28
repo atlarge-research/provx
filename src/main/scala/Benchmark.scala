@@ -47,28 +47,21 @@ object Benchmark {
 
     val benchmarkConfig = new BenchmarkConfig(configPath)
 
-    val datasetPathPrefix = benchmarkConfig.datasetPath.get
-    val lineagePathPrefix = benchmarkConfig.lineagePath.get
-    val outputPath = benchmarkConfig.outputPath.get
-
-    println(s"Dataset     path: ${datasetPathPrefix}")
-    println(s"Experiments path: ${experimentDir}")
-    println(s"Lineage     path: ${lineagePathPrefix}")
-    println(s"Output      path: ${outputPath}")
+    benchmarkConfig.debug()
     println(s"Run number: ${runNr}")
 
     val spark = SparkSession.builder
       .appName(s"ProvX ${algorithm}/${dataset}/${if (lineageOption) true else false}/${runNr} benchmark")
       .getOrCreate()
 
-    LineageContext.setLineageDir(spark.sparkContext, lineagePathPrefix)
+    LineageContext.setLineageDir(spark.sparkContext, benchmarkConfig.lineagePath)
     if (lineageOption) {
       LineageContext.enableCheckpointing()
     } else {
       LineageContext.disableCheckpointing()
     }
 
-    val (g, config) = loadGraph(spark.sparkContext, datasetPathPrefix, dataset)
+    val (g, config) = loadGraph(spark.sparkContext, benchmarkConfig.datasetPath, dataset)
     val gl = g.withLineage()
 
     println("---")
@@ -108,7 +101,7 @@ object Benchmark {
     )
 
     val postfix = if (lineageOption) { "-lineage" } else { "" }
-    g.vertices.saveAsTextFile(s"${outputPath}/run-${runNr}/${algorithm}-${dataset}${postfix}.txt")
+    g.vertices.saveAsTextFile(s"${benchmarkConfig.outputPath}/run-${runNr}/${algorithm}-${dataset}${postfix}.txt")
 
     val results = ujson.Obj(
       "applicationId" -> spark.sparkContext.applicationId,

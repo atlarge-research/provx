@@ -8,8 +8,8 @@ object PushoverNotifier {
     requests.post(
       "https://api.pushover.net/1/messages.json",
       data = Map(
-        "token" -> config.token.get,
-        "user" -> config.user.get,
+        "token" -> config.token,
+        "user" -> config.user,
         "title" -> title,
         "message" -> message
       ))
