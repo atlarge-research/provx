@@ -1,0 +1,111 @@
+export DOWNLOAD_DIR := "/var/scratch/gmo520/thesis/graphs"
+export LOCAL_DATASET_DIR := "/local/gmo520/graphs"
+export RUNNER_CONFIG := "/home/gmo520/provxlib/run/config.properties"
+
+# Environment variables required for Spark setup
+@env:
+	echo 'export JAVA_HOME="/usr/lib/jvm/jre-1.8.0/"' > env
+	cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
+	echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
+	echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+
+# Copy graph datasets to HDFS
+copy: env
+	#!/usr/bin/env bash
+	source ./env
+	hadoop fs -mkdir -p /graphs
+	hadoop fs -copyFromLocal $LOCAL_DATASET_DIR /graphs
+
+# Clean HDFS directories
+clean: env
+	#!/usr/bin/env bash
+	source ./env
+	dirs=(
+	  /user/$USER/checkpoints
+	  /user/$USER/results
+	  /user/$USER/output
+	  /user/$USER/spark-logs
+	)
+	for dir in ${dirs[@]}; do
+	  hadoop fs -rm -r -f $dir
+	  hadoop fs -mkdir -p $dir
+	done
+	mkdir -p /var/scratch/gmo520/thesis/experiments
+
+setup: clean copy
+
+# Run benchmark
+bench: env
+	#!/usr/bin/env bash
+	source ./env
+	spark-submit --class lu.magalhaes.gilles.provxlib.BenchmarkRunner provxlib-assembly-0.1.0-SNAPSHOT.jar $RUNNER_CONFIG > >(tee -a runner.stdout.log) 2> >(tee -a runner.stderr.log >&2)
+
+# Compute size of lineage for experiments
+sizes: env
+	#!/usr/bin/env bash
+	source ./env
+	ids=$(find /var/scratch/gmo520/thesis/experiments -name 'metrics.json' | xargs jq -r '.metadata.lineageDirectory' | grep -v 'null')
+
+	rm -f checkpoint_sizes.txt
+	touch checkpoint_sizes.txt
+	rm -f output_sizes.txt
+	touch output_sizes.txt
+
+	echo $ids
+	for id in $ids; do
+		hadoop fs -du -s /user/gmo520/checkpoints/$id >> checkpoint_sizes.txt
+		hadoop fs -du -s '/user/gmo520/checkpoints/'$id'/*' >> checkpoint_sizes.txt
+	done
+
+	runs=$(hadoop fs -ls /user/gmo520/output | awk '{ print $8 }')
+	echo $runs
+	for run in $runs; do
+		hadoop fs -du $run >> output_sizes.txt
+	done
+
+# Decompress compressed graph datasets
+decompress:
+	#!/bin/bash
+
+	mkdir -p $LOCAL_DATASET_DIR
+	
+	for file in $DOWNLOAD_DIR/*.tar.zst; do
+		if [ ! -f $LOCAL_DATASET_DIR/$(basename $file .tar.zst).v ]; then
+			echo "Decompressing $file"
+			tar -C $LOCAL_DATASET_DIR --use-compress-program=unzstd -xvf $file &
+		fi
+	done
+	
+	wait 
+
+# Download graph datasets from LDBC Graphalytics
+download:
+	#!/bin/bash
+	
+	base_url="https://pub-383410a98aef4cb686f0c7601eddd25f.r2.dev/graphalytics/"
+
+	datasets=(
+		# XS datasets
+		"kgs.tar.zst"
+		"wiki-Talk.tar.zst"
+		"cit-Patents.tar.zst"
+	
+		# S datasets
+		"datagen-7_5-fb.tar.zst"
+		"datagen-7_6-fb.tar.zst"
+		"datagen-7_7-zf.tar.zst"
+		"datagen-7_8-zf.tar.zst"
+		"datagen-7_9-fb.tar.zst"
+		"dota-league.tar.zst"
+		"graph500-22.tar.zst"
+	)
+	for dataset in ${datasets[@]}; do
+		dataset_path=$DOWNLOAD_DIR/$dataset
+		if [ ! -f $dataset_path ]; then
+			url=$base_url$dataset
+			echo "Downloading $url"
+			wget -P $DOWNLOAD_DIR $url &
+		fi
+	done
+	
+	wait 
