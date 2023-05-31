@@ -13,7 +13,6 @@ export RUNNER_CONFIG := "/home/gmo520/provxlib/run/config.properties"
 copy: env
 	#!/usr/bin/env bash
 	source ./env
-	hadoop fs -mkdir -p /graphs
 	hadoop fs -copyFromLocal $LOCAL_DATASET_DIR /graphs
 
 # Clean HDFS directories
@@ -35,32 +34,39 @@ clean: env
 setup: clean copy
 
 # Run benchmark
-bench: env
+bench description: env
 	#!/usr/bin/env bash
 	source ./env
-	spark-submit --class lu.magalhaes.gilles.provxlib.BenchmarkRunner provxlib-assembly-0.1.0-SNAPSHOT.jar $RUNNER_CONFIG > >(tee -a runner.stdout.log) 2> >(tee -a runner.stderr.log >&2)
+	spark-submit --class lu.magalhaes.gilles.provxlib.BenchmarkRunner provxlib-assembly-0.1.0-SNAPSHOT.jar $RUNNER_CONFIG "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+
+post: sizes
+	#!/usr/bin/env bash
+	ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
+	cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER
 
 # Compute size of lineage for experiments
 sizes: env
 	#!/usr/bin/env bash
 	source ./env
-	ids=$(find /var/scratch/gmo520/thesis/experiments -name 'metrics.json' | xargs jq -r '.metadata.lineageDirectory' | grep -v 'null')
+	ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
+	ids=$(find $ARCHIVE_FOLDER -name 'metrics.json' | xargs jq -r '.metadata.lineageDirectory' | grep -v 'null')
 
-	rm -f checkpoint_sizes.txt
-	touch checkpoint_sizes.txt
-	rm -f output_sizes.txt
-	touch output_sizes.txt
+	checkpoint_sizes_file=$ARCHIVE_FOLDER/checkpoint_sizes.txt
+	output_sizes_file=$ARCHIVE_FOLDER/output_sizes.txt
+
+	rm -f $checkpoint_sizes_file $output_sizes_file
+	touch $checkpoint_sizes_file $output_sizes_file
 
 	echo $ids
 	for id in $ids; do
-		hadoop fs -du -s /user/gmo520/checkpoints/$id >> checkpoint_sizes.txt
-		hadoop fs -du -s '/user/gmo520/checkpoints/'$id'/*' >> checkpoint_sizes.txt
+		hadoop fs -du -s /user/gmo520/checkpoints/$id >> $checkpoint_sizes_file
+		hadoop fs -du -s '/user/gmo520/checkpoints/'$id'/*' >> $checkpoint_sizes_file
 	done
 
 	runs=$(hadoop fs -ls /user/gmo520/output | awk '{ print $8 }')
 	echo $runs
 	for run in $runs; do
-		hadoop fs -du $run >> output_sizes.txt
+		hadoop fs -du $run >> $output_sizes_file
 	done
 
 # Decompress compressed graph datasets
