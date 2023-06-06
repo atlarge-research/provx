@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "thesis-results"
+version = "0.1.0"
+description = "Plotting scripts for experimental results"
+authors = ["Gilles Magalhaes <gilles.magalhaes@gmail.com>"]
+readme = "README.md"
+packages = [{include = "thesis_results"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+matplotlib = "^3.7.1"
+pydantic = "^1.10.8"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
