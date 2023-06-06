@@ -1,13 +1,13 @@
 from typing import Dict, Tuple, List
 from schema import CheckpointSize, Size, OutputSize, FullOutputSize, Result, FullResult
-from config import checkpoint_size_file, output_size_file, results_dir
+from config import results_dir
 from pathlib import Path
 import re
 import json
 
 
-def load_results() -> Dict[Tuple[str, str], FullResult]:
-    input_files = sorted(results_dir.glob("experiment-*/run-*/lineage-true/metrics.json"))
+def load_results(archive_dir: Path) -> Dict[Tuple[str, str], FullResult]:
+    input_files = sorted(archive_dir.glob("experiment-*/run-*/lineage-true/metrics.json"))
     results = {}
     for f in input_files:
         withLineage = Result(**json.loads(f.read_text()))
@@ -27,7 +27,9 @@ def load_results() -> Dict[Tuple[str, str], FullResult]:
         )
     return final_results
 
-def parse_checkpoint_sizes():
+
+def parse_checkpoint_sizes(archive_dir: Path) -> List[CheckpointSize]:
+    checkpoint_size_file = archive_dir / "checkpoint_sizes.txt"
     lines = checkpoint_size_file.read_text().strip().split('\n')
     result = {}
 
@@ -44,7 +46,8 @@ def parse_checkpoint_sizes():
     return [CheckpointSize(lineageId=lineageId, iterations=iters) for lineageId, iters in result.items()]
 
 
-def parse_output_sizes() -> List[FullOutputSize]:
+def parse_output_sizes(archive_dir: Path) -> List[FullOutputSize]:
+    output_size_file = archive_dir / "output_sizes.txt"
     lines = output_size_file.read_text().strip().split('\n')
     result = {}
 

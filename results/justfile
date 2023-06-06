@@ -1,12 +1,13 @@
-clean:
-  rm -fr plots data
-  mkdir plots data
+plots:
+  python src/main.py
 
-fetch:
+clean:
+  rm -fr plots
+  mkdir plots
+
+sync:
   #!/usr/bin/env bash
-  function dcp() {
-    bash /Users/gm/.ssh/vu/pass.sh > /dev/null && SSH_ASKPASS=/Users/gm/.ssh/vu/pass.sh SSH_ASKPASS_REQUIRE=force scp $@
+  function dsync() {
+    bash /Users/gm/.ssh/vu/pass.sh > /dev/null && SSH_ASKPASS=/Users/gm/.ssh/vu/pass.sh SSH_ASKPASS_REQUIRE=force rsync $@
   }
-  dcp -r das:/var/scratch/gmo520/thesis/experiments data
-  dcp -r das:provx-run/checkpoint_sizes.txt data
-  dcp -r das:provx-run/output_sizes.txt data
+  dsync -azP das6:/var/scratch/gmo520/thesis/experiments .

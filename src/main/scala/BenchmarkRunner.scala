@@ -20,7 +20,10 @@ object BenchmarkRunner {
     val cliExperimentDescription = args.lift(1)
     val config = new BenchmarkConfig(configPath)
 
-    config.validate()
+    if (!config.validate()) {
+      println("Invalid configuration")
+      return 1
+    }
 
     // Create current experiment directory
     val currentExperimentPath = config.createCurrentExperimentDir()
@@ -32,6 +35,7 @@ object BenchmarkRunner {
     // Get experiment description from user via readline (if not specified at CLI)
     val descriptionFilePath = currentExperimentPath.get / "description.txt"
     val description = if (cliExperimentDescription.isEmpty) {
+      print("Experiment description: ")
       val experimentDescription = readLine()
       experimentDescription
     } else {
@@ -117,6 +121,9 @@ object BenchmarkRunner {
           )
         }
       }
+
+      // Create an empty SUCCESS file to indicate that experiments terminated successfully
+      os.write(currentExperimentPath.get / "SUCCESS", "")
     })
 
     sys.addShutdownHook({

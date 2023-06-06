@@ -5,10 +5,18 @@ import org.apache.commons.configuration.{ConfigurationException, PropertiesConfi
 import org.apache.hadoop.conf.{Configuration => HadoopConfiguration}
 import org.apache.hadoop.fs.Path
 
+import scala.collection.mutable.ArrayBuffer
+
 class SafeConfiguration(config: PropertiesConfiguration) {
 
   def getKeys(): List[String] = {
-    List()
+    val iter = config.getKeys()
+    val keys = ArrayBuffer[String]()
+    while (iter.hasNext) {
+      val v = iter.next()
+      keys += v
+    }
+    keys.toList
   }
 
   def getInt(key: String): Option[Int] = {

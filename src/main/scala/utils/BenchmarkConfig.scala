@@ -36,8 +36,8 @@ class BenchmarkConfig(path: String) {
   private lazy val config = SafeConfiguration.fromLocalPath(path).get
 
   def validate(): Boolean = {
-    val requiredKeys = Set(RequiredKeys.values.map(_.toString).toList)
-    val definedKeys = Set(config.getKeys())
+    val requiredKeys = RequiredKeys.values.map(_.toString).toSet
+    val definedKeys = config.getKeys().toSet
     requiredKeys.intersect(definedKeys).size == requiredKeys.size
   }
 
@@ -45,7 +45,7 @@ class BenchmarkConfig(path: String) {
 
   def createCurrentExperimentDir(): Option[os.Path] = {
     val now = Calendar.getInstance().getTime
-    val datetimeFormat = new SimpleDateFormat("yyyymmdd-hhmmss")
+    val datetimeFormat = new SimpleDateFormat("yyyyMMdd-HHmmss")
     val currentExperimentPath = os.Path(experimentsPath) / datetimeFormat.format(now)
 
     if (os.exists(currentExperimentPath)) {
@@ -64,7 +64,9 @@ class BenchmarkConfig(path: String) {
     println(s"Dataset     path: ${datasetPath}")
     println(s"Lineage     path: ${lineagePath}")
     println(s"Output      path: ${outputPath}")
-    println(s"Experiments path: ${currentExperimentDir.get}")
+    if (currentExperimentDir.isDefined) {
+      println(s"Experiments path: ${currentExperimentDir.get}")
+    }
     println(s"Repetitions     : ${repetitions}")
     println(s"Graphs:         : ${graphs.toSet.mkString(", ")}")
     println(s"Algorithms      : ${algorithms.toSet.mkString(", ")}")

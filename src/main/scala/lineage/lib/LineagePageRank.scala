@@ -1,11 +1,10 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.lib
 
-import lineage.{GraphCheckpointer, LineagePregel, PregelIterationMetrics, PregelMetrics}
+import lineage.{GraphCheckpointer, PregelIterationMetrics, PregelMetrics}
 
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
-import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
@@ -61,7 +60,7 @@ object LineagePageRank extends Logging {
       val vertices = workGraph.vertices.count()
       workGraph.edges.count()
 
-      metrics.update(new PregelIterationMetrics(vertices))
+      metrics.update(PregelIterationMetrics(vertices))
 
       checkpointer.save(workGraph)
 

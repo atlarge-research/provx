@@ -45,5 +45,4 @@ object LineageSSSP {
       vertexProgram, sendMessage, messageCombiner
     )
   }
-
 }

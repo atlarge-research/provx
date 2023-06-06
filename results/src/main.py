@@ -1,14 +1,13 @@
 from typing import Dict, Tuple, List
-from schema import FullResult
-from utils import pretty_size
-import ingest 
-import plots
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-from schema import CheckpointSize, FullOutputSize
-
+from config import plots_dir, results_dir
+from schema import CheckpointSize, FullResult
+from utils import pretty_size
+import ingest 
+import plots
 
 
 def graph_size_per_iteration(results: Dict[Tuple[str, str], FullResult], checkpoints: List[CheckpointSize]):
@@ -43,21 +42,28 @@ def graph_size_per_iteration(results: Dict[Tuple[str, str], FullResult], checkpo
     plt.show()
 
 
-
 def main():
-    results = ingest.load_results()
-    output_sizes = ingest.parse_output_sizes()
-    checkpoint_sizes = ingest.parse_checkpoint_sizes()
+    for archive_dir in results_dir.iterdir():
+        if archive_dir.is_file():
+            continue
 
-    # breakpoint()
+        results = ingest.load_results(archive_dir)
+        output_sizes = ingest.parse_output_sizes(archive_dir)
+        checkpoint_sizes = ingest.parse_checkpoint_sizes(archive_dir)
 
-    # plots.messages_per_iteration(results)
-    plots.execution_overhead(results)
+        p_dir = plots_dir / archive_dir.name
+        if not p_dir.exists():
+            p_dir.mkdir()
 
-    # TODO: compare to checkpoint storage size
-    plots.storage_overhead(results, output_sizes, checkpoint_sizes)
+        plots.execution_overhead(results, p_dir)
+        plots.execution_overhead(results, p_dir, single=True)
+        plots.iterations_per_dataset(results, p_dir)
 
-    # graph_size_per_iteration(results, checkpoint_sizes)
+        plots.storage_overhead(results, output_sizes, checkpoint_sizes, p_dir)
+
+        #plots.messages_per_iteration(results)
+
+        # graph_size_per_iteration(results, checkpoint_sizes)
 
 if __name__ == '__main__':
     main()
