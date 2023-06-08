@@ -1,5 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package utils
+package benchmark.utils
 
 import org.apache.commons.configuration.{ConfigurationException, PropertiesConfiguration}
 import org.apache.hadoop.conf.{Configuration => HadoopConfiguration}

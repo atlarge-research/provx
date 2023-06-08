@@ -1,5 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package lineage.lib
+package lineage.algorithms
 
 import scala.reflect.ClassTag
 

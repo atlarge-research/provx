@@ -1,4 +1,5 @@
 package lu.magalhaes.gilles.provxlib
+package benchmark
 
 import lineage.GraphLineage.graphToGraphLineage
 import lineage.LineageContext

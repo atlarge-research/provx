@@ -1,7 +1,8 @@
 package lu.magalhaes.gilles.provxlib
-package lineage.lib
+package lineage.algorithms
 
-import lineage.{GraphCheckpointer, PregelIterationMetrics, PregelMetrics}
+import lineage.GraphCheckpointer
+import lineage.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
@@ -14,7 +15,7 @@ object LineagePageRank extends Logging {
     graph: Graph[VD, ED],
     numIter: Int,
     dampingFactor: Double = 0.85,
-    sampleFraction: Option[Double] = None): (Graph[Double, Unit], PregelMetrics) =
+    sampleFraction: Option[Double] = None): (Graph[Double, Unit], ObservationSet) =
   {
     val vertexCount = graph.numVertices
 
@@ -33,7 +34,7 @@ object LineagePageRank extends Logging {
     ).cache()
 
     val checkpointer = new GraphCheckpointer[Double, Double](graph.vertices.sparkContext, sampleFraction = sampleFraction)
-    val metrics = new PregelMetrics(checkpointer.graphLineageDirectory)
+    val metrics = new ObservationSet()
 
     checkpointer.save(workGraph)
 
@@ -60,7 +61,7 @@ object LineagePageRank extends Logging {
       val vertices = workGraph.vertices.count()
       workGraph.edges.count()
 
-      metrics.update(PregelIterationMetrics(vertices))
+      metrics.add(new Gauge("numVertices", vertices))
 
       checkpointer.save(workGraph)
 

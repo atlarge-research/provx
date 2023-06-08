@@ -1,7 +1,8 @@
 package lu.magalhaes.gilles.provxlib
-package lineage.lib
+package lineage.algorithms
 
-import lineage.{LineagePregel, PregelMetrics}
+import lineage.LineagePregel
+import lineage.metrics.ObservationSet
 
 import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, Graph, VertexId}
 
@@ -10,7 +11,7 @@ import scala.reflect.ClassTag
 object LineageCDLP {
 
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]):
-    (Graph[VertexId, Unit], PregelMetrics) =
+    (Graph[VertexId, Unit], ObservationSet) =
   {
     val cdlpGraph = graph
       .mapVertices((vid, _) => vid)

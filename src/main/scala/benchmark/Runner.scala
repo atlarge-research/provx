@@ -1,4 +1,5 @@
 package lu.magalhaes.gilles.provxlib
+package benchmark
 
 import utils._
 
@@ -9,7 +10,7 @@ import java.io.File
 import java.util.UUID
 import scala.io.StdIn.readLine
 
-object BenchmarkRunner {
+object Runner {
 
   var currentApp: Option[Process] = None
 

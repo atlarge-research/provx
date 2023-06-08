@@ -1,5 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package utils
+package benchmark.utils
 
 class NotificationsConfig(path: String) {
   private val config = SafeConfiguration.fromLocalPath(path).get

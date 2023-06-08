@@ -1,5 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package utils
+package benchmark.utils
 
 import java.io.{BufferedWriter, File, FileWriter}
 

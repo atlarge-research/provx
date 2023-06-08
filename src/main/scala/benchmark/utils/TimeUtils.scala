@@ -1,5 +1,6 @@
 package lu.magalhaes.gilles.provxlib
-package utils
+package benchmark.utils
+
 import scala.concurrent.duration._
 
 object TimeUtils {

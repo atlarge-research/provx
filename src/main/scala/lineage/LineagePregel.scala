@@ -1,10 +1,12 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import scala.reflect.ClassTag
+import lineage.metrics.{Counter, Gauge, ObservationSet}
+
 import org.apache.spark.graphx._
-import org.apache.spark.graphx.impl.EdgeActiveness
 import org.apache.spark.internal.Logging
+
+import scala.reflect.ClassTag
 
 object LineagePregel extends Logging {
   def apply[VD: ClassTag, ED: ClassTag, A: ClassTag]
@@ -17,7 +19,7 @@ object LineagePregel extends Logging {
   (vprog: (VertexId, VD, A) => VD,
    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
    mergeMsg: (A, A) => A)
-  : (Graph[VD, ED], PregelMetrics) = {
+  : (Graph[VD, ED], ObservationSet) = {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0," +
       s" but got ${maxIterations}")
 
@@ -40,18 +42,22 @@ object LineagePregel extends Logging {
 
     checkpointer.save(g)
 
-    val metrics = new PregelMetrics(checkpointer.graphLineageDirectory)
+    val metrics = new ObservationSet()
 
     // Loop
     var prevG: Graph[VD, ED] = null
-    var i = 0
-    while (activeMessages > 0 && i < maxIterations) {
+    var i = Counter.zero
+//    var i = 0
+    // TODO: add iteration time
+    while (activeMessages > 0 && i.current < maxIterations) {
       // Receive the messages and update the vertices.
       prevG = g
       g = g.joinVertices(messages)(vprog)
       checkpointer.save(g)
 
-      println(s"Iteration ${i}: Sending ${messages.count()} messages.")
+      val generation = new ObservationSet()
+
+      println(s"Iteration ${i.current}: Sending ${messages.count()} messages.")
 
       val oldMessages = messages
       // Send new messages, skipping edges where neither side received a message. We must cache
@@ -64,7 +70,7 @@ object LineagePregel extends Logging {
       // and the vertices of g).
 //      messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
       activeMessages = messages.count()
-      metrics.update(new PregelIterationMetrics(activeMessages))
+      generation.add(new Gauge("activeMessages", activeMessages))
 
       logInfo("Pregel finished iteration " + i)
 
@@ -73,7 +79,9 @@ object LineagePregel extends Logging {
       prevG.unpersistVertices()
       prevG.edges.unpersist()
       // count the iteration
-      i += 1
+      i = i.increment()
+      generation.add(i)
+      metrics.add(generation)
     }
 //    messageCheckpointer.unpersistDataSet()
 //    graphCheckpointer.deleteAllCheckpoints()

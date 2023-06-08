@@ -6,10 +6,10 @@ import org.apache.spark.SparkContext
 
 object LineageContext {
 
-  private var lineageDir: Option[String] = None
-
   private var checkpointingEnabled = false
 
+  private var lineageDir: Option[String] = None
+  def getLineageDir: Option[String] = lineageDir
   def setLineageDir(sparkContext: SparkContext, directory: String): Unit = {
     val dir = new Path(directory)
     val fs = dir.getFileSystem(sparkContext.hadoopConfiguration)
@@ -26,9 +26,7 @@ object LineageContext {
     checkpointingEnabled = false
   }
 
-  def isCheckpointingEnabled: Boolean = {
-    checkpointingEnabled
-  }
+  def isCheckpointingEnabled: Boolean = checkpointingEnabled
 
-  def getLineageDir: Option[String] = lineageDir
+  // TODO: filesystem methods to write to either Hadoop or local FS
 }

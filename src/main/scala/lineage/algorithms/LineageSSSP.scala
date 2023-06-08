@@ -1,7 +1,8 @@
 package lu.magalhaes.gilles.provxlib
-package lineage.lib
+package lineage.algorithms
 
-import lineage.{LineagePregel, PregelMetrics}
+import lineage.LineagePregel
+import lineage.metrics.ObservationSet
 
 import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, Graph, VertexId}
 
@@ -10,7 +11,7 @@ import scala.reflect.ClassTag
 object LineageSSSP {
 
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], source: VertexId):
-      (Graph[Double, Double], PregelMetrics) = {
+      (Graph[Double, Double], ObservationSet) = {
     val ssspGraph = graph.mapVertices((vid, _) => {
         if (vid == source) {
           0.0

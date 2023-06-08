@@ -1,6 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package utils
-
+package benchmark.utils
 
 object PushoverNotifier {
 

@@ -1,4 +1,5 @@
 package lu.magalhaes.gilles.provxlib
+package benchmark
 
 import lineage.GraphLineage._
 import lineage.LineageContext
@@ -81,18 +82,10 @@ object Benchmark {
     println(s"Took ${TimeUtils.formatNanoseconds(elapsedTime)}")
 
     val run = ujson.Obj()
-    val iterationMetadata = ujson.Arr()
 
-    if (lineageOption && sol.isDefined && sol.get.getMetrics().isDefined) {
-      val metrics = sol.get.getMetrics().get
-      for ((iterationMetrics, idx) <- metrics.getIterations().zipWithIndex) {
-        iterationMetadata.arr.append(ujson.Obj(
-          "idx" -> idx,
-          "messageCount" -> ujson.Num(iterationMetrics.messageCount)
-        ))
-      }
-      run("iterations") = iterationMetadata
-      run("lineageDirectory") = metrics.getLineageDirectory()
+    if (lineageOption && sol.isDefined) {
+      run("iterations") = sol.get.getMetrics().serialize()
+//      run("lineageDirectory") = metrics.getLineageDirectory()
     }
 
     run("duration") = ujson.Obj(

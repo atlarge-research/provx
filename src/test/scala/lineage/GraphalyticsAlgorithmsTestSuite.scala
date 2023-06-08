@@ -1,9 +1,11 @@
 package lu.magalhaes.gilles.provxlib
-package lib
+package lineage
 
 import lineage.GraphLineage
 import utils.{GraphalyticsOutputReader, LocalSparkContext}
 
+import lu.magalhaes.gilles.provxlib.benchmark.Benchmark
+import lu.magalhaes.gilles.provxlib.lineage.metrics.ObservationSet
 import org.apache.spark.SparkContext
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -13,7 +15,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     val expectedOutput = getClass.getResource(s"/example-directed-${algorithm}").toString
     val parent = "/" + expectedOutput.split("/").drop(1).dropRight(1).mkString("/")
     val (graph, _) = Benchmark.loadGraph(sc, parent, "example-directed")
-    (new GraphLineage(graph), expectedOutput)
+    (new GraphLineage(graph, ObservationSet()), expectedOutput)
   }
 
   // OK

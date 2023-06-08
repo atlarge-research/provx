@@ -1,9 +1,7 @@
 package lu.magalhaes.gilles.provxlib
-package utils
+package benchmark.utils
 
-import org.apache.commons.configuration.{Configuration, ConfigurationException, PropertiesConfiguration}
 import org.apache.hadoop.conf.{Configuration => HadoopConfiguration}
-import org.apache.hadoop.fs.Path
 
 class GraphalyticsConfiguration(hadoopConfig: HadoopConfiguration, path: String) {
 

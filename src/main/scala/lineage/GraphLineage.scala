@@ -1,7 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import lineage.lib._
+import lineage.algorithms._
+import lineage.metrics.ObservationSet
 
 import org.apache.spark.graphx.{Graph, VertexId}
 
@@ -9,13 +10,13 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 class GraphLineage[VD: ClassTag, ED: ClassTag]
-    (graph: Graph[VD, ED], metrics: Option[PregelMetrics] = None) {
+    (graph: Graph[VD, ED], metrics: ObservationSet) {
 
   def getGraph(): Graph[VD, ED] = graph
 
   private var sampleFraction: Option[Double] = None
 
-  def getMetrics(): Option[PregelMetrics] = metrics
+  def getMetrics(): ObservationSet = metrics
 
   def withLineage(): GraphLineage[VD, ED] = this
 
@@ -25,27 +26,27 @@ class GraphLineage[VD: ClassTag, ED: ClassTag]
     val (g, pregelMetrics) = LineagePageRank.run(
       graph, numIter, dampingFactor = dampingFactor
     )
-    new GraphLineage[Double, Unit](g, Some(pregelMetrics))
+    new GraphLineage[Double, Unit](g, pregelMetrics)
   }
 
   def bfs(sourceVertex: VertexId): GraphLineage[Long, ED] = {
     val (g, pregelMetrics) = LineageBFS.run(graph, sourceVertex)
-    new GraphLineage[Long, ED](g, Some(pregelMetrics))
+    new GraphLineage[Long, ED](g, pregelMetrics)
   }
 
   def wcc(maxIterations: Int = Int.MaxValue): GraphLineage[VertexId, ED] = {
     val (g, pregelMetrics) = LineageWCC.run(graph, maxIterations = maxIterations)
-    new GraphLineage[VertexId, ED](g, Some(pregelMetrics))
+    new GraphLineage[VertexId, ED](g, pregelMetrics)
   }
 
   def sssp(source: VertexId): GraphLineage[Double, Double] = {
     val (g, pregelMetrics) = LineageSSSP.run(graph, source)
-    new GraphLineage[Double, Double](g, Some(pregelMetrics))
+    new GraphLineage[Double, Double](g, pregelMetrics)
   }
 
   def cdlp(): GraphLineage[VertexId, Unit] = {
     val (g, pregelMetrics) = LineageCDLP.run(graph)
-    new GraphLineage[VertexId, Unit](g, Some(pregelMetrics))
+    new GraphLineage[VertexId, Unit](g, pregelMetrics)
   }
 
   def lcc(): Graph[Double, Unit] = {
@@ -63,6 +64,6 @@ object GraphLineage {
 
   implicit def graphToGraphLineage[VD: ClassTag, ED: ClassTag]
       (g: Graph[VD, ED]): GraphLineage[VD, ED] = {
-    new GraphLineage[VD, ED](g)
+    new GraphLineage[VD, ED](g, ObservationSet())
   }
 }

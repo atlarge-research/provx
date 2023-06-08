@@ -1,7 +1,8 @@
 package lu.magalhaes.gilles.provxlib
-package lineage.lib
+package lineage.algorithms
 
-import lineage.{LineagePregel, PregelMetrics}
+import lineage.LineagePregel
+import lineage.metrics.ObservationSet
 
 import org.apache.spark.graphx._
 
@@ -10,7 +11,7 @@ import scala.reflect.ClassTag
 /** Connected components algorithm. */
 object LineageWCC {
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], maxIterations: Int = Int.MaxValue):
-    (Graph[VertexId, ED], PregelMetrics) =
+    (Graph[VertexId, ED], ObservationSet) =
   {
     require(maxIterations > 0, s"Maximum of iterations must be greater than 0," +
       s" but got ${maxIterations}")
