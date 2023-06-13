@@ -9,8 +9,7 @@ import org.apache.spark.graphx.{Graph, VertexId}
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
-class GraphLineage[VD: ClassTag, ED: ClassTag]
-    (graph: Graph[VD, ED], metrics: ObservationSet) {
+class GraphLineage[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], metrics: ObservationSet) {
 
   def getGraph(): Graph[VD, ED] = graph
 
@@ -53,6 +52,7 @@ class GraphLineage[VD: ClassTag, ED: ClassTag]
     LineageLCC.run(graph)
   }
 
+  // TODO: make sampling more powerful
   def sample(fraction: Double): GraphLineage[VD, ED] = {
     assert(fraction > 0 && fraction <= 1.0, "Fraction must be between 0 and 1")
     sampleFraction = Some(fraction)

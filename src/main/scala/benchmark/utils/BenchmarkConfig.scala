@@ -35,6 +35,7 @@ class BenchmarkConfig(path: String) {
   }
   private lazy val config = SafeConfiguration.fromLocalPath(path).get
 
+  def getPath: String = path
   def validate(): Boolean = {
     val requiredKeys = RequiredKeys.values.map(_.toString).toSet
     val definedKeys = config.getKeys().toSet

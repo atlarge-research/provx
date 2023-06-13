@@ -4,6 +4,13 @@ package benchmark.utils
 import scala.concurrent.duration._
 
 object TimeUtils {
+
+  def timed[R](f: => R): (R, Long) = {
+    val startTime = System.nanoTime()
+    val res = f
+    val endTime = System.nanoTime()
+    (res, endTime - startTime)
+  }
   def formatNanoseconds(nanoseconds: Long): String = {
     val duration = Duration(nanoseconds, NANOSECONDS)
     val days = duration.toDays

@@ -17,5 +17,6 @@ libraryDependencies ++= Seq(
   "com.lihaoyi" %% "upickle" % "3.1.0",
   "com.lihaoyi" %% "os-lib" % "0.9.1",
   "com.lihaoyi" %% "requests" % "0.8.0",
+  "com.lihaoyi" %% "mainargs" % "0.5.0",
   "org.scalatest" %% "scalatest" % "3.2.15" % "test"
 )
