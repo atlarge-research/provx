@@ -1,6 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.utils
 
+import benchmark.configuration.NotificationsConfig
+
 object PushoverNotifier {
 
   def notify(config: NotificationsConfig, title: String, message: String): Unit = {

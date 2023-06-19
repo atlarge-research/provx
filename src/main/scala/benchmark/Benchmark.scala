@@ -1,9 +1,10 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.utils.{BenchmarkConfig, GraphalyticsConfiguration, GraphUtils, TimeUtils}
+import benchmark.utils.{GraphUtils, TimeUtils}
 import lineage.GraphLineage.graphToGraphLineage
 import lineage.LineageContext
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration}
 
 import mainargs.{arg, main, Flag, ParserForClass}
 import org.apache.spark.sql.SparkSession

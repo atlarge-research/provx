@@ -3,6 +3,7 @@ package lineage.hooks
 
 import lineage.PregelLifecycle
 import lineage.metrics.{Gauge, ObservationSet}
+
 class PregelTimeHook extends PregelLifecycle {
 
   var startTime: Option[Long] = None

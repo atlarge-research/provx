@@ -1,6 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.utils
 
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.BenchmarkConfig
 import mainargs.TokensReader
 
 object CustomCLIArguments {

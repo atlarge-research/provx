@@ -3,6 +3,7 @@ package benchmark
 
 import benchmark.utils._
 
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig}
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.launcher.SparkLauncher

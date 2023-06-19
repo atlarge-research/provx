@@ -1,5 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package benchmark.utils
+package benchmark.configuration
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
