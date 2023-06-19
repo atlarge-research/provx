@@ -31,13 +31,16 @@ class BenchmarkConfig(path: String) {
     val outputPath = Value("benchmark.outputPath")
 
     // Where to store Spark event logs
-    val sparkLogs = Value("benchmark.spark-logs")
+    val sparkLogs = Value("benchmark.sparkLogs")
+
+    // Location of benchmark jar
+    val benchmarkJar = Value("runner.jar")
   }
   private lazy val config = SafeConfiguration.fromLocalPath(path).get
 
   def getPath: String = path
   def validate(): Boolean = {
-    val requiredKeys = RequiredKeys.values.map(_.toString).toSet
+    val requiredKeys = RequiredKeys.values.map(_.toString)
     val definedKeys = config.getKeys().toSet
     requiredKeys.intersect(definedKeys).size == requiredKeys.size
   }
@@ -62,15 +65,15 @@ class BenchmarkConfig(path: String) {
    * Print configuration information for debugging
    */
   def debug(): Unit = {
-    println(s"Dataset     path: ${datasetPath}")
-    println(s"Lineage     path: ${lineagePath}")
-    println(s"Output      path: ${outputPath}")
+    println(s"Dataset path: ${datasetPath}")
+    println(s"Lineage path: ${lineagePath}")
+    println(s"Output  path: ${outputPath}")
     if (currentExperimentDir.isDefined) {
       println(s"Experiments path: ${currentExperimentDir.get}")
     }
-    println(s"Repetitions     : ${repetitions}")
-    println(s"Graphs:         : ${graphs.toSet.mkString(", ")}")
-    println(s"Algorithms      : ${algorithms.toSet.mkString(", ")}")
+    println(s"Repetitions : ${repetitions}")
+    println(s"Graphs:     : ${graphs.toSet.mkString(", ")}")
+    println(s"Algorithms  : ${algorithms.toSet.mkString(", ")}")
   }
 
   def datasetPath: String = config.getString(RequiredKeys.datasetPath.toString).get
@@ -88,4 +91,6 @@ class BenchmarkConfig(path: String) {
   def outputPath: String = config.getString(RequiredKeys.outputPath.toString).get
 
   def sparkLogs: String = config.getString(RequiredKeys.sparkLogs.toString).get
+
+  def benchmarkJar: String = config.getString(RequiredKeys.benchmarkJar.toString).get
 }

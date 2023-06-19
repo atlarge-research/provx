@@ -1,13 +1,16 @@
-export DOWNLOAD_DIR := "/var/scratch/gmo520/thesis/graphs"
-export LOCAL_DATASET_DIR := "/local/gmo520/graphs"
-export RUNNER_CONFIG := "/home/gmo520/provxlib/run/config.properties"
+export BENCHMARK_JAR := "../target/scala-2.12/provxlib-assembly-0.1.0-SNAPSHOT.jar"
+export EXPERIMENTS_DIR := "/Users/gm/vu/thesis/impl/provxlib/run/experiments"
+export DOWNLOAD_DIR := "/Users/gm/vu/thesis/data/raw"
+export LOCAL_DATASET_DIR := "/Users/gm/vu/thesis/data/graphs"
+export RUNNER_CONFIG := "/Users/gm/vu/thesis/impl/provxlib/run/config.properties"
 
 # Environment variables required for Spark setup
 @env:
-	echo 'export JAVA_HOME="/usr/lib/jvm/jre-1.8.0/"' > env
-	cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
-	echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
-	echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+	touch env
+	# echo 'export JAVA_HOME="/usr/lib/jvm/jre-1.8.0/"' > env
+	# cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
+	# echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
+	# echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
 
 # Copy graph datasets to HDFS
 copy: env
@@ -15,8 +18,15 @@ copy: env
 	source ./env
 	hadoop fs -copyFromLocal $LOCAL_DATASET_DIR /graphs
 
+clean-local: env
+  #!/usr/bin/env bash
+  source ./env
+  rm -r $EXPERIMENTS_DIR
+  mkdir -p $EXPERIMENTS_DIR
+
+
 # Clean HDFS directories
-clean: env
+clean-hdfs: env
 	#!/usr/bin/env bash
 	source ./env
 	dirs=(
@@ -29,15 +39,18 @@ clean: env
 	  hadoop fs -rm -r -f $dir
 	  hadoop fs -mkdir -p $dir
 	done
-	mkdir -p /var/scratch/gmo520/thesis/experiments
+
+clean: clean-hdfs clean-local
 
 setup: clean copy
 
 # Run benchmark
 bench description: env
-	#!/usr/bin/env bash
-	source ./env
-	spark-submit --class lu.magalhaes.gilles.provxlib.BenchmarkRunner provxlib-assembly-0.1.0-SNAPSHOT.jar $RUNNER_CONFIG "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  #!/usr/bin/env bash
+  source ./env
+  just -d .. -f ../justfile
+  cp $BENCHMARK_JAR provxlib.jar
+  spark-submit --driver-memory 8G --executor-memory 8G --class lu.magalhaes.gilles.provxlib.benchmark.Runner provxlib.jar --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
 
 post: sizes
 	#!/usr/bin/env bash
@@ -97,13 +110,13 @@ download:
 		"cit-Patents.tar.zst"
 	
 		# S datasets
-		"datagen-7_5-fb.tar.zst"
-		"datagen-7_6-fb.tar.zst"
-		"datagen-7_7-zf.tar.zst"
-		"datagen-7_8-zf.tar.zst"
-		"datagen-7_9-fb.tar.zst"
-		"dota-league.tar.zst"
-		"graph500-22.tar.zst"
+		# "datagen-7_5-fb.tar.zst"
+		# "datagen-7_6-fb.tar.zst"
+		# "datagen-7_7-zf.tar.zst"
+		# "datagen-7_8-zf.tar.zst"
+		# "datagen-7_9-fb.tar.zst"
+		# "dota-league.tar.zst"
+		# "graph500-22.tar.zst"
 	)
 	for dataset in ${datasets[@]}; do
 		dataset_path=$DOWNLOAD_DIR/$dataset

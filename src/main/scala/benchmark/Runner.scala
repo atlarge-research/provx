@@ -11,16 +11,14 @@ import java.io.File
 import java.util.UUID
 
 object Runner {
-  import utils.CLIReader._
+  import utils.CustomCLIArguments._
 
   @main
-  case class Config(@arg(name = "configPath", doc = "Graphalytics benchmark configuration")
+  case class Config(@arg(name = "config", doc = "Graphalytics benchmark configuration")
                     benchmarkConfig: BenchmarkConfig,
                     @arg(name = "description", doc = "Experiment description")
                     description: String = "")
 
-
-  var currentApp: Option[Process] = None
 
   def run(args: Config): Long = {
     if (!args.benchmarkConfig.validate()) {
@@ -47,65 +45,55 @@ object Runner {
 
     args.benchmarkConfig.debug()
 
-    val lineageEnabled = List(true, false)
-    val runs = Range.inclusive(1, args.benchmarkConfig.repetitions).toList
+    val sparkHome = sys.env.get("SPARK_HOME")
+    if (sparkHome.isEmpty) {
+      println("SPARK_HOME env variable must be defined.")
+      return 1
+    }
 
-    val configurations = args.benchmarkConfig.graphs
-      .flatMap(dataset => {
-        new GraphalyticsConfiguration(
-          new Configuration(),
-          s"${args.benchmarkConfig.datasetPath}/${dataset}.properties"
-        )
-        .algorithms()
-        .get.toSet
-        .intersect(args.benchmarkConfig.algorithms.toSet)
-        .map(algorithm => (dataset, algorithm, UUID.randomUUID()))
-      })
-      .flatMap(v => lineageEnabled.map(l => (v._1, v._2, v._3, l)))
-      .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, r)))
+    val configurations = generateConfigurations(args.benchmarkConfig)
 
     println(s"Configurations count: ${configurations.length}")
 
-    for ((dataset, algorithm, experimentID, withLineage, runNr) <- configurations) {
+    for ((dataset, algorithm, withLineage, runNr, experimentID) <- configurations) {
 
-      val expDir = currentExperimentPath.get /
-        s"experiment-${experimentID}" /
-        s"run-${runNr}"/
-        s"lineage-${withLineage.toString}"
+      val expDir = currentExperimentPath.get / s"experiment-${experimentID}"
 
       os.makeDir.all(expDir)
 
-      println("---")
-      println(s"algorithm: ${algorithm}, graph: ${dataset}, lineage: ${withLineage}, run: ${runNr}")
+      println(s"Experiment ${experimentID}: algorithm=${algorithm} graph=${dataset} lineage=${withLineage} run=${runNr}")
 
-      val cwd = System.getProperty("user.dir")
-
-      val outputFile = new File((expDir / "stdout.out").toString)
-      val errorFile = new File((expDir / "stderr.out").toString)
-
-      val startTime = System.nanoTime()
+      val directory = new File(System.getProperty("user.dir"))
+      val outputFile = new File((expDir / "stdout.log").toString)
+      val errorFile = new File((expDir / "stderr.log").toString)
 
       val (app, elapsedTime) = TimeUtils.timed {
+        val requiredArgs = Array(
+          "--config", args.benchmarkConfig.getPath,
+          "--algorithm", algorithm,
+          "--dataset", dataset,
+          "--runNr", runNr.toString,
+          "--outputDir", expDir.toString,
+          "--experimentID", experimentID.toString
+        )
+        val appArgs = if (withLineage) {
+          requiredArgs ++ Array("--lineage")
+        } else {
+          requiredArgs
+        }
+
         val app = new SparkLauncher()
-          .directory(new File(cwd))
-          .setAppResource("provxlib-assembly-0.1.0-SNAPSHOT.jar")
-          .setMainClass("lu.magalhaes.gilles.provxlib.Benchmark")
-          .addAppArgs(
-            "--configPath", args.benchmarkConfig.getPath,
-            "--algorithm", algorithm,
-            "--dataset", dataset,
-            if (withLineage) {
-              "--lineage"
-            } else {
-              ""
-            },
-            "--runNr", runNr.toString,
-            "--experimentDir", expDir.toString)
+          .directory(directory)
+          .setAppResource(args.benchmarkConfig.benchmarkJar)
+          .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
+          .addAppArgs(appArgs:_*)
           .redirectOutput(outputFile)
           .redirectError(errorFile)
-          .setSparkHome("/home/gmo520/bin/spark-3.2.2-bin-hadoop3.2")
+          .setSparkHome(sparkHome.get)
           .setConf("spark.eventLog.enabled", "true")
           .setConf("spark.eventLog.dir", args.benchmarkConfig.sparkLogs)
+          .setConf("spark.driver.memory", "8G")
+          .setConf("spark.executor.memory", "8G")
           .setVerbose(true)
           .launch()
 
@@ -113,8 +101,6 @@ object Runner {
 
         app
       }
-
-      currentApp = Some(app)
 
       if (app.exitValue() != 0) {
         println(s"Error occurred: exit code ${app.exitValue()}")
@@ -135,19 +121,31 @@ object Runner {
     0
   }
 
+  def generateConfigurations(benchmarkConfig: BenchmarkConfig): Array[(String, String, Boolean, Int, UUID)] = {
+    val lineageEnabled = List(true, false)
+    val runs = Range.inclusive(1, benchmarkConfig.repetitions).toList
+
+    benchmarkConfig.graphs
+      .flatMap(dataset => {
+        new GraphalyticsConfiguration(
+          new Configuration(),
+          s"${benchmarkConfig.datasetPath}/${dataset}.properties"
+        )
+          .algorithms()
+          .get.toSet
+          .intersect(benchmarkConfig.algorithms.toSet)
+          .map(algorithm => (dataset, algorithm))
+      })
+      .flatMap(v => lineageEnabled.map(l => (v._1, v._2, l)))
+      .flatMap(v => runs.map(r => (v._1, v._2, v._3, r)))
+      .map(v => (v._1, v._2, v._3, v._4, UUID.randomUUID()))
+  }
+
   def main(args: Array[String]): Unit = {
     val (_, elapsedTime) = TimeUtils.timed {
       run(ParserForClass[Config].constructOrExit(args))
     }
 
-    sys.addShutdownHook({
-      println("Shutting down...")
-      currentApp.map { app =>
-        println("Attempting shutdown")
-        app.destroyForcibly()
-      }
-      println(f"Benchmark took ${TimeUtils.formatNanoseconds(elapsedTime)}")
-      Thread.sleep(1000)
-    })
+    println(f"Benchmark took ${TimeUtils.formatNanoseconds(elapsedTime)}")
   }
 }

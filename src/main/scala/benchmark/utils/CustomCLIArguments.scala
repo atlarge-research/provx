@@ -3,7 +3,7 @@ package benchmark.utils
 
 import mainargs.TokensReader
 
-object CLIReader {
+object CustomCLIArguments {
   implicit object BenchmarkConfigArg extends TokensReader.Simple[BenchmarkConfig] {
     def shortName = "path"
 

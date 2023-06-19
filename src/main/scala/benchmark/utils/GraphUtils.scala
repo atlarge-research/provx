@@ -5,11 +5,15 @@ import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph}
 
 object GraphUtils {
-  def load(sc: SparkContext, datasetPathPrefix: String, name: String): (Graph[Unit, Double], GraphalyticsConfiguration) = {
-    val config = new GraphalyticsConfiguration(sc.hadoopConfiguration, s"${datasetPathPrefix}/${name}.properties")
+  def verticesPath(prefix: String) = s"${prefix}.v"
+  def edgesPath(prefix: String) = s"${prefix}.e"
+  def configPath(prefix: String) = s"${prefix}.properties"
 
-    val edgePath = s"${datasetPathPrefix}/${name}.e"
-    val vertexPath = s"${datasetPathPrefix}/${name}.v"
+  def load(sc: SparkContext, prefix: String): (Graph[Unit, Double], GraphalyticsConfiguration) = {
+    val config = new GraphalyticsConfiguration(sc.hadoopConfiguration, configPath(prefix))
+
+    val edgePath = edgesPath(prefix)
+    val vertexPath = verticesPath(prefix)
 
     val edges = sc.textFile(edgePath).map(line => {
       val tokens = line.trim.split("""\s""")

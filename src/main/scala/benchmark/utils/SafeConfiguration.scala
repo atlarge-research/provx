@@ -47,7 +47,6 @@ class SafeConfiguration(config: PropertiesConfiguration) {
 object SafeConfiguration {
 
   def fromLocalPath(path: String) : Option[SafeConfiguration] = {
-    println(s"Loading configuration ${path}")
     try {
       val propConfig = new PropertiesConfiguration(path)
       Some(new SafeConfiguration(propConfig))
@@ -62,7 +61,7 @@ object SafeConfiguration {
     val hadoopPath = new Path(path)
     val fs = hadoopPath.getFileSystem(hadoopConfig)
     val in = fs.open(hadoopPath)
-    println(s"Loading configuration ${hadoopPath}")
+
     try {
       val propConfig = new PropertiesConfiguration()
       propConfig.load(in)

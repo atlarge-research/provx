@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.utils.{BenchmarkConfig, GraphUtils, TimeUtils}
+import benchmark.utils.{BenchmarkConfig, GraphalyticsConfiguration, GraphUtils, TimeUtils}
 import lineage.GraphLineage.graphToGraphLineage
 import lineage.LineageContext
 
@@ -9,10 +9,10 @@ import mainargs.{arg, main, Flag, ParserForClass}
 import org.apache.spark.sql.SparkSession
 
 object Benchmark {
-  import utils.CLIReader._
+  import utils.CustomCLIArguments._
 
   @main
-  case class Config(@arg(name = "configPath", doc = "Graphalytics benchmark configuration")
+  case class Config(@arg(name = "config", doc = "Graphalytics benchmark configuration")
                     benchmarkConfig: BenchmarkConfig,
                     @arg(name = "algorithm", doc = "Algorithm to run")
                     algorithm: String,
@@ -22,77 +22,95 @@ object Benchmark {
                     lineageActive: Flag,
                     @arg(name = "runNr", doc = "Run number")
                     runNr: Long,
-                    @arg(name = "experimentDir", doc = "Directory to store results (local filesystem)")
-                    experimentDir: os.Path)
+                    @arg(name = "outputDir", doc = "Directory to store results (local filesystem)")
+                    outputDir: os.Path,
+                    @arg(name = "experimentID", doc = "Experiment identifier")
+                    experimentID: String)
 
 
-  def run(args: Config): Unit = {
+  def run(args: Config): (Unit, Long) = TimeUtils.timed {
     args.benchmarkConfig.debug()
-    println(s"Run number: ${args.runNr}")
+    println(s"Run number   : ${args.runNr}")
+    println(s"Experiment ID: ${args.experimentID}")
 
-    val (_, elapsedTime) = TimeUtils.timed {
-      val spark = SparkSession.builder
-        .appName(s"ProvX ${args.algorithm}/${args.dataset}/${args.lineageActive}/${args.runNr} benchmark")
-        .getOrCreate()
+    val metricsLocation = args.outputDir / "metrics.json"
 
-      LineageContext.setLineageDir(spark.sparkContext, args.benchmarkConfig.lineagePath)
-      if (args.lineageActive.value) {
-        LineageContext.enableCheckpointing()
-      } else {
-        LineageContext.disableCheckpointing()
-      }
+    val spark = SparkSession.builder
+      .appName(s"ProvX ${args.algorithm}/${args.dataset}/${args.lineageActive}/${args.runNr} benchmark")
+      .getOrCreate()
 
-      val (g, config) = GraphUtils.load(spark.sparkContext, args.benchmarkConfig.datasetPath, args.dataset)
-      val gl = g.withLineage()
-
-      val (sol, elapsedTime) = TimeUtils.timed {
-        args.algorithm match {
-          case "bfs" => gl.bfs(config.bfsSourceVertex())
-          case "wcc" => gl.wcc()
-          case "pr" => gl.pageRank(numIter = config.pageRankIterations())
-          case "sssp" => gl.sssp(config.ssspSourceVertex())
-          // case "lcc" => gl.lcc()
-          // case "cdlp" => Some(gl.cdlp())
-        }
-      }
-      println(s"Run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
-
-      val run = ujson.Obj(
-        "duration" -> ujson.Obj(
-          "amount" -> ujson.Num(elapsedTime),
-          "unit" -> "ns"
-        )
-      )
-
-      if (args.lineageActive.value) {
-        run("iterations") = sol.getMetrics().serialize()
-        // TODO(gm): include lineage directory in HDFS
-        // run("lineageDirectory") = metrics.getLineageDirectory()
-      }
-
-      val postfix = if (args.lineageActive.value) {
-        "-lineage"
-      } else {
-        ""
-      }
-      g.vertices.saveAsTextFile(s"${args.benchmarkConfig.outputPath}/run-${args.runNr}/${args.algorithm}-${args.dataset}${postfix}.txt")
-
-      val results = ujson.Obj(
-        "applicationId" -> spark.sparkContext.applicationId,
-        "algorithm" -> args.algorithm,
-        "graph" -> args.dataset,
-        "lineage" -> args.lineageActive.value,
-        "runNr" -> args.runNr,
-        "metadata" -> run
-      )
-
-      os.write(args.experimentDir / "metrics.json", results)
+    LineageContext.setLineageDir(spark.sparkContext, args.benchmarkConfig.lineagePath)
+    if (args.lineageActive.value) {
+      LineageContext.enableCheckpointing()
+    } else {
+      LineageContext.disableCheckpointing()
     }
 
-    println(s"Benchmark run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
+    val pathPrefix = s"${args.benchmarkConfig.datasetPath}/${args.dataset}"
+
+    val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
+    val gl = g.withLineage()
+
+    val (sol, elapsedTime) = TimeUtils.timed {
+      args.algorithm match {
+        case "bfs" => gl.bfs(config.bfsSourceVertex())
+        case "wcc" => gl.wcc()
+        case "pr" => gl.pageRank(numIter = config.pageRankIterations())
+        case "sssp" => gl.sssp(config.ssspSourceVertex())
+        // case "lcc" => gl.lcc()
+        // case "cdlp" => Some(gl.cdlp())
+      }
+    }
+    println(s"Run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
+
+    val run = ujson.Obj(
+      "duration" -> ujson.Obj(
+        "amount" -> ujson.Num(elapsedTime),
+        "unit" -> "ns"
+      )
+    )
+
+    if (args.lineageActive.value) {
+      run("iterations") = sol.getMetrics().serialize()
+      // TODO(gm): include lineage directory in HDFS
+      // run("lineageDirectory") = metrics.getLineageDirectory()
+    }
+
+    val resultsPath = s"${args.benchmarkConfig.outputPath}/experiment-${args.experimentID}/vertices.txt"
+    g.vertices.saveAsTextFile(resultsPath)
+
+    val results = ujson.Obj(
+      "metrics" -> run
+    )
+
+    os.write(metricsLocation, results)
+
+    val provenance = ujson.Obj(
+      "inputs" -> ujson.Obj(
+        "config" -> GraphUtils.configPath(pathPrefix),
+        "vertices" -> GraphUtils.verticesPath(pathPrefix),
+        "edges" -> GraphUtils.edgesPath(pathPrefix),
+        "parameters" -> ujson.Obj(
+          "applicationId" -> spark.sparkContext.applicationId,
+          "algorithm" -> args.algorithm,
+          "graph" -> args.dataset,
+          "lineage" -> args.lineageActive.value,
+          "runNr" -> args.runNr,
+        )
+      ),
+      "output" -> ujson.Obj(
+        "metrics" -> metricsLocation.toString,
+        "stdout" -> (args.outputDir / "stdout.log").toString,
+        "stderr" -> (args.outputDir / "stderr.log").toString,
+        "results" -> resultsPath
+      )
+    )
+
+    os.write(args.outputDir / "provenance.json", provenance)
   }
 
   def main(args: Array[String]): Unit = {
-    run(ParserForClass[Config].constructOrExit(args))
+    val (_, elapsedTime) = run(ParserForClass[Config].constructOrExit(args))
+    println(s"Benchmark run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
   }
 }
