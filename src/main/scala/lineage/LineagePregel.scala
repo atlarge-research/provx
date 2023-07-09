@@ -1,9 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import lineage.metrics.{Counter, Gauge, ObservationSet}
+import lineage.metrics.{Gauge, ObservationSet}
 
-import lu.magalhaes.gilles.provxlib.lineage.hooks.{IterationCounterHook, IterationTimeHook, PregelTimeHook}
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
 
@@ -13,24 +12,19 @@ object LineagePregel extends Logging {
   def apply[VD: ClassTag, ED: ClassTag, A: ClassTag]
   (graph: Graph[VD, ED],
    initialMsg: A,
+   lineageContext: LineageLocalContext,
    maxIterations: Int = Int.MaxValue,
-   activeDirection: EdgeDirection = EdgeDirection.Either,
-   pruneLineage: Option[((VertexId, VD)) => Boolean] = None,
-   sampleFraction: Option[Double] = None)
+   activeDirection: EdgeDirection = EdgeDirection.Either)
   (vprog: (VertexId, VD, A) => VD,
    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
    mergeMsg: (A, A) => A)
   : (Graph[VD, ED], ObservationSet) = {
-    require(maxIterations > 0, s"Maximum number of iterations must be greater than 0," +
-      s" but got ${maxIterations}")
+    require(maxIterations > 0, s"Maximum number of iterations must be greater than 0, but got ${maxIterations}")
 
     var g = graph.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
 
-    val checkpointer = new GraphCheckpointer[VD, ED](
-      g.vertices.sparkContext,
-      pruneLineage, sampleFraction
-    )
-    //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
+    val checkpointer = new GraphCheckpointer[VD, ED](lineageContext)
+//    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
 //      checkpointInterval, graph.vertices.sparkContext)
 //    graphCheckpointer.update(g)
 
@@ -43,20 +37,12 @@ object LineagePregel extends Logging {
 
     checkpointer.save(g)
 
-    val hooks: Seq[PregelLifecycle] = Seq(
-      new IterationCounterHook(),
-      new IterationTimeHook(),
-      new PregelTimeHook()
-    )
-
-    def preStart(set: ObservationSet): Unit = hooks.foreach(_.preStart(set))
-    def postStop(set: ObservationSet): Unit = hooks.foreach(_.postStop(set))
-    def preIteration(set: ObservationSet): Unit = hooks.foreach(_.preIteration(set))
-    def postIteration(set: ObservationSet): Unit = hooks.foreach(_.postIteration(set))
+    val hooks = lineageContext.hooksRegistry.allHooks
 
     val metrics = ObservationSet()
 
-    preStart(metrics)
+    // Run pre-start hooks
+    hooks.foreach(_.preStart(metrics))
 
     // Loop
     var prevG: Graph[VD, ED] = null
@@ -64,7 +50,7 @@ object LineagePregel extends Logging {
     while (activeMessages > 0 && i < maxIterations) {
       val generation = ObservationSet()
 
-      preIteration(generation)
+      hooks.foreach(_.preIteration(generation))
 
       // Receive the messages and update the vertices.
       prevG = g
@@ -92,14 +78,16 @@ object LineagePregel extends Logging {
       oldMessages.unpersist()
       prevG.unpersistVertices()
       prevG.edges.unpersist()
-      // count the iteration
-      i = i + 1
+
+      // Run post-iteration hooks
+      hooks.foreach(_.postIteration(generation))
       metrics.add(generation)
 
-      postIteration(generation)
+      i += 1
     }
 
-    postStop(metrics)
+    // Run post-stop hooks
+    hooks.foreach(_.postStop(metrics))
 
     // TODO: only unpersist when lineage data is not needed
 //    messageCheckpointer.unpersistDataSet()

@@ -1,8 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.LineagePregel
 import lineage.metrics.ObservationSet
+import lineage.{LineageLocalContext, LineagePregel}
 
 import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, Graph, VertexId}
 
@@ -10,8 +10,9 @@ import scala.reflect.ClassTag
 
 object LineageSSSP {
 
-  def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], source: VertexId):
+  def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], lineageContext: LineageLocalContext, source: VertexId):
       (Graph[Double, Double], ObservationSet) = {
+
     val ssspGraph = graph.mapVertices((vid, _) => {
         if (vid == source) {
           0.0
@@ -41,7 +42,7 @@ object LineageSSSP {
     val initialMessage = Double.PositiveInfinity
 
     LineagePregel(
-      ssspGraph, initialMessage, activeDirection = EdgeDirection.Out
+      ssspGraph, initialMessage, lineageContext, activeDirection = EdgeDirection.Out
     )(
       vertexProgram, sendMessage, messageCombiner
     )

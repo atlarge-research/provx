@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.GraphCheckpointer
+import lineage.{GraphCheckpointer, LineageLocalContext}
 import lineage.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
@@ -12,10 +12,10 @@ import scala.reflect.ClassTag
 object LineagePageRank extends Logging {
 
   def run[VD: ClassTag, ED: ClassTag](
-    graph: Graph[VD, ED],
-    numIter: Int,
-    dampingFactor: Double = 0.85,
-    sampleFraction: Option[Double] = None): (Graph[Double, Unit], ObservationSet) =
+                                       graph: Graph[VD, ED],
+                                       numIter: Int,
+                                       lineageContext: LineageLocalContext,
+                                       dampingFactor: Double = 0.85): (Graph[Double, Unit], ObservationSet) =
   {
     val vertexCount = graph.numVertices
 
@@ -33,8 +33,8 @@ object LineagePageRank extends Logging {
       workGraph.outDegrees.mapValues(_ => 0.0)
     ).cache()
 
-    val checkpointer = new GraphCheckpointer[Double, Double](graph.vertices.sparkContext, sampleFraction = sampleFraction)
-    val metrics = new ObservationSet()
+    val checkpointer = new GraphCheckpointer[Double, Double](lineageContext)
+    val metrics = ObservationSet()
 
     checkpointer.save(workGraph)
 
@@ -55,7 +55,6 @@ object LineagePageRank extends Logging {
       workGraph = workGraph.outerJoinVertices(sumOfValues)((_, _, newSumOfValues) =>
         (1 - dampingFactor) / vertexCount +
           dampingFactor * (newSumOfValues.getOrElse(0.0) + danglingSum / vertexCount)).cache()
-
 
       // Materialise the working graph
       val vertices = workGraph.vertices.count()

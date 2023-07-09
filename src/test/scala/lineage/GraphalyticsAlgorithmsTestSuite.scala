@@ -1,11 +1,10 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import benchmark.Benchmark
+import benchmark.utils.GraphUtils
 import lineage.metrics.ObservationSet
 import utils.{GraphalyticsOutputReader, LocalSparkContext}
 
-import lu.magalhaes.gilles.provxlib.benchmark.utils.GraphUtils
 import org.apache.spark.SparkContext
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -15,10 +14,9 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     val expectedOutput = getClass.getResource(s"/example-directed-${algorithm}").toString
     val parent = "/" + expectedOutput.split("/").drop(1).dropRight(1).mkString("/")
     val (graph, _) = GraphUtils.load(sc, parent + "/example-directed")
-    (new GraphLineage(graph, ObservationSet()), expectedOutput)
+    (new GraphLineage(graph, new LineageLocalContext(graph.vertices.sparkContext), ObservationSet()), expectedOutput)
   }
 
-  // OK
   test("BFS") {
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "BFS")
@@ -28,7 +26,6 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     }
   }
 
-  // OK
   test("SSSP") {
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "SSSP")
@@ -49,7 +46,6 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     }
   }
 
-  // OK
   test("WCC") {
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "WCC")
@@ -60,7 +56,6 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     }
   }
 
-  // OK
   test("PageRank") {
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "PR")

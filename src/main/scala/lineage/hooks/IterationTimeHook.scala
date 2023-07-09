@@ -1,21 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.hooks
 
-import lineage.PregelLifecycle
-import lineage.metrics.{Gauge, ObservationSet}
+import lineage.metrics.ObservationSet
 
-class IterationTimeHook extends PregelLifecycle {
+class IterationTimeHook extends PregelEventHook {
 
-  var startTime: Option[Long] = None
+  val timeHook = new TimeHook("iterationTime")
 
-  override def preIteration(set: ObservationSet): Unit = {
-    startTime = Some(System.nanoTime())
-  }
+  override def preIteration(set: ObservationSet): Unit = timeHook.pre()
 
-  override def postIteration(set: ObservationSet): Unit = {
-    val iterationTime = System.nanoTime() - startTime.get
-    assert(iterationTime >= 0)
-    set.add(Gauge("iterationTime", iterationTime))
-    startTime = None
-  }
+  override def postIteration(set: ObservationSet): Unit = timeHook.post(set)
 }

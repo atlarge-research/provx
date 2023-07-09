@@ -3,7 +3,7 @@ package benchmark
 
 import benchmark.utils.{GraphUtils, TimeUtils}
 import lineage.GraphLineage.graphToGraphLineage
-import lineage.LineageContext
+import lineage.LineageLocalContext
 import lu.magalhaes.gilles.provxlib.benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration}
 
 import mainargs.{arg, main, Flag, ParserForClass}
@@ -40,17 +40,17 @@ object Benchmark {
       .appName(s"ProvX ${args.algorithm}/${args.dataset}/${args.lineageActive}/${args.runNr} benchmark")
       .getOrCreate()
 
-    LineageContext.setLineageDir(spark.sparkContext, args.benchmarkConfig.lineagePath)
-    if (args.lineageActive.value) {
-      LineageContext.enableCheckpointing()
-    } else {
-      LineageContext.disableCheckpointing()
-    }
-
     val pathPrefix = s"${args.benchmarkConfig.datasetPath}/${args.dataset}"
-
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage()
+
+    gl.lineageContext.getStorageHandler.setLineageDir(args.benchmarkConfig.lineagePath)
+    if (args.lineageActive.value) {
+      gl.lineageContext.enableTracing()
+    } else {
+      gl.lineageContext.disableTracing()
+    }
+
 
     val (sol, elapsedTime) = TimeUtils.timed {
       args.algorithm match {

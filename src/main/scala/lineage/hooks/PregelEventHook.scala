@@ -1,9 +1,9 @@
 package lu.magalhaes.gilles.provxlib
-package lineage
+package lineage.hooks
 
 import lineage.metrics.ObservationSet
 
-trait PregelLifecycle {
+trait PregelEventHook {
   def preStart(set: ObservationSet): Unit = {}
 
   def postStop(set: ObservationSet): Unit = {}
