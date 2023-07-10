@@ -1,13 +1,17 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import scala.reflect.ClassTag
+import lineage.GraphLineage
 
-import org.apache.spark.graphx.{EdgeContext, EdgeDirection, Graph, VertexId}
+import org.apache.spark.graphx.{EdgeContext, EdgeDirection, VertexId}
+
+import scala.reflect.ClassTag
 
 object LineageLCC {
 
-  def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED]): Graph[Double, Unit] = {
+  def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED]): GraphLineage[Double, Unit] = {
+    val graph = gl.getGraph()
+
     // Deduplicate the edges to ensure that every pair of connected vertices is
     // compared exactly once. The value of an edge represents if the edge is
     // unidirectional (1) or bidirectional (2) in the input graph.
@@ -75,6 +79,7 @@ object LineageLCC {
     canonicalGraph.unpersistVertices(blocking = false)
     canonicalGraph.edges.unpersist(blocking = false)
 
-    lccGraph.mapEdges(_ => Unit)
+    // TODO: set metrics
+    new GraphLineage[Double, Unit](lccGraph.mapEdges(_ => Unit), gl.lineageContext)
   }
 }

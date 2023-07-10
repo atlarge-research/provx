@@ -10,18 +10,18 @@ import scala.reflect.ClassTag
 
 object LineagePregel extends Logging {
   def apply[VD: ClassTag, ED: ClassTag, A: ClassTag]
-  (graph: Graph[VD, ED],
+  (gl: GraphLineage[VD, ED],
    initialMsg: A,
-   lineageContext: LineageLocalContext,
    maxIterations: Int = Int.MaxValue,
    activeDirection: EdgeDirection = EdgeDirection.Either)
   (vprog: (VertexId, VD, A) => VD,
    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
    mergeMsg: (A, A) => A)
-  : (Graph[VD, ED], ObservationSet) = {
+  : GraphLineage[VD, ED] = {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0, but got ${maxIterations}")
 
-    var g = graph.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
+    val lineageContext = gl.lineageContext
+    var g = gl.getGraph().mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
 
     val checkpointer = new GraphCheckpointer[VD, ED](lineageContext)
 //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
@@ -89,13 +89,17 @@ object LineagePregel extends Logging {
     // Run post-stop hooks
     hooks.foreach(_.postStop(metrics))
 
+    val newGl = new GraphLineage(g, gl.lineageContext)
+    newGl.setMetrics(metrics)
+
     // TODO: only unpersist when lineage data is not needed
 //    messageCheckpointer.unpersistDataSet()
 //    graphCheckpointer.deleteAllCheckpoints()
 //    messageCheckpointer.deleteAllCheckpoints()
-    (g, metrics)
+    newGl
   } // end of apply
 
+  // Copied from GraphX source, since needed to access to private mapReduceTriplets method
   private def mapReduceTriplets[VD: ClassTag, ED: ClassTag, A: ClassTag](
       g: Graph[VD, ED],
       mapFunc: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],

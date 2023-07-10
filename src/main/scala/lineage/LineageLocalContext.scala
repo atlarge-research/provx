@@ -4,23 +4,19 @@ import lu.magalhaes.gilles.provxlib.lineage.hooks.HooksRegistry
 import lu.magalhaes.gilles.provxlib.lineage.modes.{InteractiveMode, Mode}
 import lu.magalhaes.gilles.provxlib.lineage.storage.{DefaultStorageHandler, StorageHandler}
 import org.apache.spark.SparkContext
-import org.apache.spark.graphx.VertexId
 
 class LineageLocalContext(@transient val sparkContext: SparkContext) {
 
-  private var checkpointingEnabled = false
+  private var tracingEnabled: Option[Boolean] = None
 
   val hooksRegistry = new HooksRegistry()
 
   private var storageHandler: StorageHandler = new DefaultStorageHandler(this)
 
-  private var mode: Mode = new InteractiveMode()
+  private var mode: Mode = InteractiveMode()
 
   def getMode(): Mode = mode
   def setMode(m: Mode): Unit = mode = m
-
-  var pruneLineage: Option[((VertexId, Any)) => Boolean] = None
-  var sampleFraction: Option[Double] = None
 
   def getStorageHandler: StorageHandler = storageHandler
 
@@ -30,11 +26,18 @@ class LineageLocalContext(@transient val sparkContext: SparkContext) {
 
   def enableTracing(): Unit = {
     require(storageHandler.getLineageDir.isDefined, "Lineage directory is not defined.")
-    checkpointingEnabled = true
+    tracingEnabled = Some(true)
   }
   def disableTracing(): Unit = {
-    checkpointingEnabled = false
+    tracingEnabled = Some(false)
   }
 
-  def isTracingEnabled: Boolean = checkpointingEnabled
+  // TODO: does tracing from LineageContext override this decision?
+  def isTracingEnabled: Boolean = {
+    if (tracingEnabled.isDefined) {
+      tracingEnabled.get
+    } else {
+      LineageContext.isTracingEnabled
+    }
+  }
 }

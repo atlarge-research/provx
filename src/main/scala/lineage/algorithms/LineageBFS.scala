@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{LineageLocalContext, LineagePregel}
+import lineage.{GraphLineage, LineageLocalContext, LineagePregel}
 import lineage.metrics.ObservationSet
 
 import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, Graph, VertexId}
@@ -10,8 +10,8 @@ import scala.reflect.ClassTag
 
 object LineageBFS {
 
-  def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED], lineageContext: LineageLocalContext, source: VertexId):
-      (Graph[Long, ED], ObservationSet) = {
+  def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED], source: VertexId): GraphLineage[Long, ED] = {
+    val graph = gl.getGraph()
     val bfsGraph = graph
       .mapVertices((vid, _) => {
         if (vid == source) {
@@ -38,7 +38,7 @@ object LineageBFS {
     val initialMessage = Long.MaxValue
 
     LineagePregel(
-      bfsGraph, initialMessage, lineageContext, activeDirection = EdgeDirection.Out
+      bfsGraph, initialMessage, activeDirection = EdgeDirection.Out
     )(
       vertexProgram, sendMessage, messageCombiner
     )

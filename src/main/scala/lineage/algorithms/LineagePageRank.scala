@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{GraphCheckpointer, LineageLocalContext}
+import lineage.{GraphCheckpointer, GraphLineage, LineageLocalContext}
 import lineage.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
@@ -12,11 +12,11 @@ import scala.reflect.ClassTag
 object LineagePageRank extends Logging {
 
   def run[VD: ClassTag, ED: ClassTag](
-                                       graph: Graph[VD, ED],
-                                       numIter: Int,
-                                       lineageContext: LineageLocalContext,
-                                       dampingFactor: Double = 0.85): (Graph[Double, Unit], ObservationSet) =
+     gl: GraphLineage[VD, ED],
+     numIter: Int,
+     dampingFactor: Double = 0.85): GraphLineage[Double, Unit] =
   {
+    val graph = gl.getGraph()
     val vertexCount = graph.numVertices
 
     var workGraph: Graph[Double, Double] = graph
@@ -33,7 +33,7 @@ object LineagePageRank extends Logging {
       workGraph.outDegrees.mapValues(_ => 0.0)
     ).cache()
 
-    val checkpointer = new GraphCheckpointer[Double, Double](lineageContext)
+    val checkpointer = new GraphCheckpointer[Double, Double](gl.lineageContext)
     val metrics = ObservationSet()
 
     checkpointer.save(workGraph)
@@ -70,6 +70,8 @@ object LineagePageRank extends Logging {
       iteration += 1
     }
 
-    (workGraph.mapEdges(_ => Unit), metrics)
+    val newGl = new GraphLineage(workGraph.mapEdges(_ => ()), gl.lineageContext)
+    newGl.setMetrics(metrics)
+    newGl
   }
 }

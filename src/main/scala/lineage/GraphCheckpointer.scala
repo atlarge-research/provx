@@ -27,15 +27,9 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](lineageContext: LineageLocal
 
     val lineagePath = storageHandler.createNewLineageDirectory()
 
-    val prunedVertices = if (lineageContext.pruneLineage.isDefined) {
-      g.vertices.filter(lineageContext.pruneLineage.get)
-    } else {
-      g.vertices
-    }
-
     val vertices = lineageContext.getMode() match {
-      case samplingMode: SamplingMode => samplingMode.filter(prunedVertices)
-      case _ => prunedVertices
+      case samplingMode: SamplingMode => samplingMode.filter(g.vertices)
+      case _ => g.vertices
     }
 
     val newG = Graph(vertices, g.edges)

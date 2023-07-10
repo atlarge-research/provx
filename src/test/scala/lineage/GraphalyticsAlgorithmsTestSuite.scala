@@ -14,7 +14,8 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     val expectedOutput = getClass.getResource(s"/example-directed-${algorithm}").toString
     val parent = "/" + expectedOutput.split("/").drop(1).dropRight(1).mkString("/")
     val (graph, _) = GraphUtils.load(sc, parent + "/example-directed")
-    (new GraphLineage(graph, new LineageLocalContext(graph.vertices.sparkContext), ObservationSet()), expectedOutput)
+    val llc = new LineageLocalContext(graph.vertices.sparkContext)
+    (new GraphLineage(graph, llc), expectedOutput)
   }
 
   test("BFS") {
