@@ -42,7 +42,6 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](lineageContext: LineageLocal
 
     if (lineageContext.isTracingEnabled) {
       val path = f"${lineagePath}/${iteration}%04d.v"
-      println(s"Saving data to ${path}")
       storageHandler.save(newG, path)
       iteration += 1
     }

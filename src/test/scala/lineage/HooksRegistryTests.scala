@@ -10,16 +10,16 @@ class HooksRegistryTests extends AnyFunSuite {
     val registry = new HooksRegistry()
     val hook = new IterationCounterHook()
     registry.register(hook)
-    assert(registry.allHooks().size == 4)
+    assert(registry.allHooks.size == 4)
   }
 
   test("Deregister a hook") {
     val registry = new HooksRegistry()
     val hook = new IterationCounterHook()
     registry.register(hook)
-    assert(registry.allHooks().size == 4)
+    assert(registry.allHooks.size == 4)
     registry.deregister(hook)
-    assert(registry.allHooks().size == 3)
+    assert(registry.allHooks.size == 3)
   }
 
   test("Clear all user hooks") {
@@ -27,11 +27,11 @@ class HooksRegistryTests extends AnyFunSuite {
 
     val hook = new IterationCounterHook()
     registry.register(hook)
-    assert(registry.allHooks().size == 4)
+    assert(registry.allHooks.size == 4)
 
     registry.clear()
 
     // Only default hooks are left
-    assert(registry.allHooks().size == 3)
+    assert(registry.allHooks.size == 3)
   }
 }

@@ -13,6 +13,7 @@ class DefaultStorageHandler(val lineageContext: LineageLocalContext) extends Sto
   private var lineageDir: Option[String] = None
 
   override def save[V: ClassTag, D: ClassTag](g: Graph[V, D], path: String): Unit = {
+    println(s"Saving data to ${path}")
     g.vertices.saveAsTextFile(path)
   }
 
