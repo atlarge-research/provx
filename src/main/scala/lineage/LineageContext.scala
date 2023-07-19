@@ -6,15 +6,12 @@ import scala.collection.mutable.ArrayBuffer
 
 object LineageContext {
 
-  // TODO(gm): investigate whether it's useful to have a global lineage context
-
   private val nextGLId = new AtomicInteger(0)
 
-  val pairs: ArrayBuffer[GraphLineage[_, _]] = ArrayBuffer.empty
+  val elements: ArrayBuffer[GraphLineage[_, _]] = ArrayBuffer.empty
 
   private[lineage] def newGLId(gl: GraphLineage[_, _]): Int = {
-    pairs += gl
-    println("Incrementing GLId")
+    elements += gl
     nextGLId.getAndIncrement()
   }
 

@@ -3,13 +3,11 @@ package lineage.hooks
 
 class HooksRegistry {
 
-  private val defaultHooks: Seq[PregelEventHook] = Seq(
+  private val hooks = scala.collection.mutable.ArrayBuffer(
     new IterationCounterHook(),
     new IterationTimeHook(),
     new PregelTimeHook()
   )
-
-  private val hooks = scala.collection.mutable.ArrayBuffer.empty[PregelEventHook]
 
   def register(hook: PregelEventHook): Unit = {
     hooks += hook
@@ -21,7 +19,7 @@ class HooksRegistry {
     hooks ++= newHooks
   }
 
-  def allHooks: Iterable[PregelEventHook] = defaultHooks ++ hooks
+  def allHooks: Iterable[PregelEventHook] = hooks
 
   def clear(): Unit = {
     hooks.clear()

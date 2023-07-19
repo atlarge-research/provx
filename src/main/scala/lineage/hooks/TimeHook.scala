@@ -13,7 +13,7 @@ class TimeHook(val gaugeName: String) {
   def post(set: ObservationSet): Unit = {
     val iterationTime = System.nanoTime() - startTime.get
     assert(iterationTime >= 0)
-    set.add(Gauge(gaugeName, iterationTime))
+    set.add(Gauge(gaugeName, ujson.Obj("value" -> iterationTime, "unit" -> "ns")))
     startTime = None
   }
 }

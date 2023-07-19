@@ -8,10 +8,13 @@ import lineage.metrics.ObservationSet
 import org.apache.spark.graphx.{Edge, EdgeContext, EdgeDirection, EdgeRDD, EdgeTriplet, Graph, TripletFields, VertexId, VertexRDD}
 import org.apache.spark.rdd.RDD
 
+import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
-class GraphLineage[VD: ClassTag, ED: ClassTag](val graph: Graph[VD, ED], val lineageContext: LineageLocalContext) {
+class GraphLineage[VD: ClassTag, ED: ClassTag](
+    val graph: Graph[VD, ED], val lineageContext: LineageLocalContext,
+    val annotations: ArrayBuffer[String] = ArrayBuffer.empty) {
 
   val id: Int = LineageContext.newGLId(this)
 
@@ -25,39 +28,46 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](val graph: Graph[VD, ED], val lin
 
   def metrics: ObservationSet = _metrics
 
-  def withLineage(): GraphLineage[VD, ED] = this
+  def withLineage(): GraphLineage[VD, ED] = {
+    this.annotations += "src"
+    this
+  }
 
-  private def withProvenance[VD1: ClassTag, VD2: ClassTag](f: => GraphLineage[VD1, VD2]): GraphLineage[VD1, VD2] = {
-    val res = f
-    LineageContext.graph.chain(this, res)
+  def pageRank(numIter: Int, dampingFactor: Double = 0.85): GraphLineage[Double, Unit] = withProvenance(chain = false) {
+    val res = LineagePageRank.run(this, numIter, dampingFactor = dampingFactor)
+    res.annotations += "pageRankResult"
     res
   }
 
-  def pageRank(numIter: Int, dampingFactor: Double = 0.85): GraphLineage[Double, Unit] = withProvenance {
-    LineagePageRank.run(this, numIter, dampingFactor = dampingFactor)
+  def bfs(sourceVertex: VertexId): GraphLineage[Long, ED] = withProvenance(chain = false) {
+    val res = LineageBFS.run(this, sourceVertex)
+    res.annotations += "bfsResult"
+    res
   }
 
-  def bfs(sourceVertex: VertexId): GraphLineage[Long, ED] = withProvenance {
-    LineageBFS.run(this, sourceVertex)
-  }
-
-  def wcc(maxIterations: Int = Int.MaxValue): GraphLineage[VertexId, ED] = withProvenance {
+  def wcc(maxIterations: Int = Int.MaxValue): GraphLineage[VertexId, ED] = withProvenance(chain = false) {
     LineageWCC.run(this, maxIterations = maxIterations)
   }
 
-  def sssp(source: VertexId): GraphLineage[Double, Double] = withProvenance {
+  def sssp(source: VertexId): GraphLineage[Double, Double] = withProvenance(chain = false) {
     LineageSSSP.run(this, source)
   }
 
   // TODO: broken
-  def cdlp(): GraphLineage[VertexId, Unit] = withProvenance {
+  def cdlp(): GraphLineage[VertexId, Unit] = withProvenance(chain = false) {
     LineageCDLP.run(this)
   }
 
   // TODO: broken
-  def lcc(): GraphLineage[Double, Unit] = withProvenance {
+  def lcc(): GraphLineage[Double, Unit] = withProvenance(chain = false) {
     LineageLCC.run(this)
   }
+
+  def next(): Seq[GraphLineage[_, _]] = {
+    LineageContext.graph.pairs.filter(x => x._1.id == id).map(_._2)
+  }
+
+  // GraphOps and Graph GraphX interfaces
 
   def vertices: VertexRDD[VD] = graph.vertices
   def edges: EdgeRDD[ED] = graph.edges
@@ -66,31 +76,41 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](val graph: Graph[VD, ED], val lin
   def outDegrees: VertexRDD[Int] = graph.outDegrees
 
   def mapVertices[VD2: ClassTag]
-      (f: (VertexId, VD) => VD2)(implicit eq: VD =:= VD2 = null): GraphLineage[VD2, ED] = withProvenance {
-    new GraphLineage(graph.mapVertices(f), lineageContext)
+      (f: (VertexId, VD) => VD2)(implicit eq: VD =:= VD2 = null): GraphLineage[VD2, ED] = withProvenance() {
+    val res = new GraphLineage(graph.mapVertices(f), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
   def joinVertices[U: ClassTag]
-      (table: RDD[(VertexId, U)])(mapFunc: (VertexId, VD, U) => VD) : GraphLineage[VD, ED] = withProvenance {
-    new GraphLineage(graph.joinVertices(table)(mapFunc), lineageContext)
+      (table: RDD[(VertexId, U)])(mapFunc: (VertexId, VD, U) => VD) : GraphLineage[VD, ED] = withProvenance() {
+    val res = new GraphLineage(graph.joinVertices(table)(mapFunc), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
-  def mapEdges[ED2: ClassTag](map: Edge[ED] => ED2): GraphLineage[VD, ED2] = withProvenance {
-    new GraphLineage(graph.mapEdges(map), lineageContext)
+  def mapEdges[ED2: ClassTag](map: Edge[ED] => ED2): GraphLineage[VD, ED2] = withProvenance() {
+    val res = new GraphLineage(graph.mapEdges(map), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
-  def cache(): GraphLineage[VD, ED] = {
+  def cache(): GraphLineage[VD, ED] = withProvenance() {
     graph.cache()
   }
 
   def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, U)])
      (mapFunc: (VertexId, VD, Option[U]) => VD2)(implicit eq: VD =:= VD2 = null)
-      : GraphLineage[VD2, ED] = withProvenance {
-    new GraphLineage(graph.outerJoinVertices(other)(mapFunc), lineageContext)
+      : GraphLineage[VD2, ED] = withProvenance() {
+    val res = new GraphLineage(graph.outerJoinVertices(other)(mapFunc), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
-  def mapTriplets[ED2: ClassTag](map: EdgeTriplet[VD, ED] => ED2): GraphLineage[VD, ED2] = withProvenance {
-    new GraphLineage(graph.mapTriplets(map), lineageContext)
+  def mapTriplets[ED2: ClassTag](map: EdgeTriplet[VD, ED] => ED2): GraphLineage[VD, ED2] = withProvenance() {
+    val res = new GraphLineage(graph.mapTriplets(map), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
   def aggregateMessages[A: ClassTag](
@@ -101,17 +121,23 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](val graph: Graph[VD, ED], val lin
     graph.aggregateMessages(sendMsg, mergeMsg, tripletFields)
   }
 
-  def unpersist(blocking: Boolean = false): GraphLineage[VD, ED] = withProvenance {
-    new GraphLineage(graph.unpersist(blocking), lineageContext)
+  def unpersist(blocking: Boolean = false): GraphLineage[VD, ED] = {
+    val res = new GraphLineage(graph.unpersist(blocking), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
-  def unpersistVertices(blocking: Boolean = false): GraphLineage[VD, ED] = withProvenance {
-    new GraphLineage(graph.unpersistVertices(blocking), lineageContext)
+  def unpersistVertices(blocking: Boolean = false): GraphLineage[VD, ED] = {
+    val res = new GraphLineage(graph.unpersistVertices(blocking), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
   def convertToCanonicalEdges(
-      mergeFunc: (ED, ED) => ED = (e1, e2) => e1): GraphLineage[VD, ED] = withProvenance {
-    new GraphLineage(graph.convertToCanonicalEdges(mergeFunc), lineageContext)
+      mergeFunc: (ED, ED) => ED = (e1, e2) => e1): GraphLineage[VD, ED] = withProvenance() {
+    val res = new GraphLineage(graph.convertToCanonicalEdges(mergeFunc), lineageContext)
+    res.annotations += sourcecode.Name()
+    res
   }
 
   def collectEdges(edgeDirection: EdgeDirection): VertexRDD[Array[Edge[ED]]] = {
@@ -121,9 +147,24 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](val graph: Graph[VD, ED], val lin
   def collectNeighbors(edgeDirection: EdgeDirection): VertexRDD[Array[(VertexId, VD)]] = {
     graph.collectNeighbors(edgeDirection)
   }
+
+  // Helpers
+  private def withProvenance[VD1: ClassTag, VD2: ClassTag](chain: Boolean = true)(f: => GraphLineage[VD1, VD2]): GraphLineage[VD1, VD2] = {
+    val res = f
+    if (chain) {
+      LineageContext.graph.chain(this, res)
+    }
+    res
+  }
 }
 
 object GraphLineage {
+  def apply[VD: ClassTag, ED: ClassTag](g: GraphLineage[VD, ED]): GraphLineage[VD, ED] = {
+    val res = new GraphLineage(g.graph, new LineageLocalContext(g.vertices.sparkContext))
+    LineageContext.graph.chain(g, res)
+    res
+  }
+
 
   implicit def graphToGraphLineage[VD: ClassTag, ED: ClassTag]
       (g: Graph[VD, ED]): GraphLineage[VD, ED] = {

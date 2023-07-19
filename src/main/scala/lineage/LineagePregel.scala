@@ -57,8 +57,6 @@ object LineagePregel extends Logging {
       g = g.joinVertices(messages)(vprog)
       checkpointer.save(g)
 
-      println(s"Iteration ${i}: Sending ${messages.count()} messages.")
-
       val oldMessages = messages
       // Send new messages, skipping edges where neither side received a message. We must cache
       // messages so it can be materialized on the next line, allowing us to uncache the previous
@@ -82,6 +80,8 @@ object LineagePregel extends Logging {
       // Run post-iteration hooks
       hooks.foreach(_.postIteration(generation))
       metrics.add(generation)
+      g.setMetrics(generation)
+      g.annotations += s"iteration=${i}"
 
       i += 1
     }
@@ -89,13 +89,14 @@ object LineagePregel extends Logging {
     // Run post-stop hooks
     hooks.foreach(_.postStop(metrics))
 
-    g.setMetrics(metrics)
+    val finalG = GraphLineage(g)
+    finalG.setMetrics(metrics)
 
     // TODO: only unpersist when lineage data is not needed
 //    messageCheckpointer.unpersistDataSet()
 //    graphCheckpointer.deleteAllCheckpoints()
 //    messageCheckpointer.deleteAllCheckpoints()
-    g
+    finalG
   } // end of apply
 
   // Copied from GraphX source, since needed to access to private mapReduceTriplets method

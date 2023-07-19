@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{GraphCheckpointer, GraphLineage, LineageLocalContext}
+import lineage.{GraphCheckpointer, GraphLineage}
 import lineage.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
@@ -68,7 +68,9 @@ object LineagePageRank extends Logging {
     }
 
     val newGl = workGraph.mapEdges(_ => ())
-    newGl.setMetrics(metrics)
-    newGl
+
+    val finalG = GraphLineage(newGl)
+    finalG.setMetrics(metrics)
+    finalG
   }
 }

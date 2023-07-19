@@ -32,6 +32,6 @@ class HooksRegistryTests extends AnyFunSuite {
     registry.clear()
 
     // Only default hooks are left
-    assert(registry.allHooks.size == 3)
+    assert(registry.allHooks.isEmpty)
   }
 }

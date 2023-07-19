@@ -8,7 +8,7 @@ class MetricsTestSuite extends AnyFunSuite {
     var counter = Counter.zero("test")
     counter = counter.increment()
     counter = counter.increment()
-    assert(counter.current == 2)
+    assert(counter.get == 2)
   }
 
   test("ObservationSet") {

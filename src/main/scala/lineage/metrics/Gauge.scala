@@ -1,17 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.metrics
 
-case class Gauge(gaugeName: String, var value: Long) extends Observation(name = gaugeName) {
+case class Gauge(gaugeName: String, var value: ujson.Value) extends Observation(name = gaugeName) {
 
-  def set(newValue: Long): Unit = {
+  def set(newValue: ujson.Value): Unit = {
     value = newValue
   }
 
-  def get: Long = value
+  def get: ujson.Value = value
 
-  override def serialize(): ujson.Obj = ujson.Obj(
-    "type" -> "Gauge",
-    "name" -> gaugeName,
-    "value" -> value,
-  )
+  def serialize(): ujson.Obj = super.serialize("Gauge", value)
 }
