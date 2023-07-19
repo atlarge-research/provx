@@ -2,7 +2,6 @@ package lu.magalhaes.gilles.provxlib
 package lineage
 
 import benchmark.utils.GraphUtils
-import lineage.metrics.ObservationSet
 import utils.{GraphalyticsOutputReader, LocalSparkContext}
 
 import org.apache.spark.SparkContext
@@ -22,7 +21,9 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "BFS")
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
-      val actualResult = gl.bfs(1).getGraph().vertices.collect().sortWith(_._1 < _._1)
+      val actualResult = gl.bfs(1).vertices.collect().sortWith(_._1 < _._1)
+      println("Expected results: ", expectedResult.foreach(print(_, " ")))
+      println("Acutal results: ", actualResult.foreach(print(_, " ")))
       assert(actualResult sameElements expectedResult)
     }
   }
@@ -31,7 +32,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "SSSP")
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
-      val actualResult = gl.sssp(1).getGraph().vertices.collect().sortWith(_._1 < _._1)
+      val actualResult = gl.sssp(1).vertices.collect().sortWith(_._1 < _._1)
 
       assert(expectedResult.length == actualResult.length)
 
@@ -50,7 +51,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
   test("WCC") {
     withSpark { sc =>
       val (gl, expectedOutputPath) = loadTestGraph(sc, "WCC")
-      val actualResult = gl.wcc().getGraph().vertices.collect().sortWith(_._1 < _._1)
+      val actualResult = gl.wcc().vertices.collect().sortWith(_._1 < _._1)
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
 
       assert(actualResult sameElements expectedResult)
@@ -62,7 +63,6 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
       val (gl, expectedOutputPath) = loadTestGraph(sc, "PR")
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
       val actualResult = gl.pageRank(2)
-        .getGraph()
         .vertices
         .collect()
         .sortWith(_._1 < _._1)

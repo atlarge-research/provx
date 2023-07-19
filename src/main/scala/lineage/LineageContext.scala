@@ -2,6 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package lineage
 
 import java.util.concurrent.atomic.AtomicInteger
+import scala.collection.mutable.ArrayBuffer
 
 object LineageContext {
 
@@ -9,7 +10,13 @@ object LineageContext {
 
   private val nextGLId = new AtomicInteger(0)
 
-  private[lineage] def newGLId(): Int = nextGLId.getAndIncrement()
+  val pairs: ArrayBuffer[GraphLineage[_, _]] = ArrayBuffer.empty
+
+  private[lineage] def newGLId(gl: GraphLineage[_, _]): Int = {
+    pairs += gl
+    println("Incrementing GLId")
+    nextGLId.getAndIncrement()
+  }
 
   val graph = new ProvenanceGraph()
 

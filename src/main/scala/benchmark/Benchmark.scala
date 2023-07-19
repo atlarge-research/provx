@@ -72,7 +72,7 @@ object Benchmark {
     )
 
     if (args.lineageActive.value) {
-      run("iterations") = sol.getMetrics().serialize()
+      run("iterations") = sol.metrics.serialize()
       // TODO(gm): include lineage directory in HDFS
       // run("lineageDirectory") = metrics.getLineageDirectory()
     }

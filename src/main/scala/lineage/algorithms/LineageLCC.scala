@@ -10,12 +10,10 @@ import scala.reflect.ClassTag
 object LineageLCC {
 
   def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED]): GraphLineage[Double, Unit] = {
-    val graph = gl.getGraph()
-
     // Deduplicate the edges to ensure that every pair of connected vertices is
     // compared exactly once. The value of an edge represents if the edge is
     // unidirectional (1) or bidirectional (2) in the input graph.
-    val canonicalGraph = graph.mapEdges(_ => 1).convertToCanonicalEdges(_ + _).cache()
+    val canonicalGraph = gl.mapEdges(_ => 1).convertToCanonicalEdges(_ + _).cache()
 
     // Collect for each vertex a map of (neighbour, edge value) pairs in either
     // direction in the canonical graph
@@ -27,10 +25,10 @@ object LineageLCC {
       (_, _, neighboursOpt) => neighboursOpt.getOrElse(Map[VertexId, Int]())
     ).cache()
     // Unpersist the original canonical graph
-    canonicalGraph.unpersist(blocking = false)
+    canonicalGraph.unpersist()
 
     // Define the edge-based "map" function
-    def edgeToCounts(ctx: EdgeContext[Map[VertexId, Int], Int, Long]) = {
+    def edgeToCounts(ctx: EdgeContext[Map[VertexId, Int], Int, Long]): Unit = {
       var countSrc = 0L
       var countDst = 0L
       if (ctx.srcAttr.size < ctx.dstAttr.size) {
@@ -76,10 +74,10 @@ object LineageLCC {
     lccGraph.edges.count()
 
     // Unpersist the canonical graph
-    canonicalGraph.unpersistVertices(blocking = false)
+    canonicalGraph.unpersistVertices()
     canonicalGraph.edges.unpersist(blocking = false)
 
     // TODO: set metrics
-    new GraphLineage[Double, Unit](lccGraph.mapEdges(_ => Unit), gl.lineageContext)
+    lccGraph.mapEdges(_ => Unit)
   }
 }

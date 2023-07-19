@@ -1,18 +1,16 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{GraphLineage, LineageLocalContext, LineagePregel}
-import lineage.metrics.ObservationSet
+import lineage.{GraphLineage, LineagePregel}
 
-import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, Graph, VertexId}
+import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, VertexId}
 
 import scala.reflect.ClassTag
 
 object LineageBFS {
 
   def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED], source: VertexId): GraphLineage[Long, ED] = {
-    val graph = gl.getGraph()
-    val bfsGraph = graph
+    val bfsGraph = gl
       .mapVertices((vid, _) => {
         if (vid == source) {
           0L

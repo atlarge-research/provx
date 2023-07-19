@@ -16,12 +16,11 @@ object LineagePageRank extends Logging {
      numIter: Int,
      dampingFactor: Double = 0.85): GraphLineage[Double, Unit] =
   {
-    val graph = gl.getGraph()
-    val vertexCount = graph.numVertices
+    val vertexCount = gl.numVertices
 
-    var workGraph: Graph[Double, Double] = graph
+    var workGraph: GraphLineage[Double, Double] = gl
       // Associate the degree with each vertex
-      .outerJoinVertices(graph.outDegrees) {
+      .outerJoinVertices(gl.outDegrees) {
         (_, _, deg) => deg.getOrElse(0)
       }
       // Set the weight on the edges based on the degree
@@ -37,8 +36,6 @@ object LineagePageRank extends Logging {
     val metrics = ObservationSet()
 
     checkpointer.save(workGraph)
-
-    // TODO: add lineage graph to pagerank
 
     var iteration = 0
     while (iteration < numIter) {
@@ -60,17 +57,17 @@ object LineagePageRank extends Logging {
       val vertices = workGraph.vertices.count()
       workGraph.edges.count()
 
-      metrics.add(new Gauge("numVertices", vertices))
+      metrics.add(Gauge("numVertices", vertices))
 
       checkpointer.save(workGraph)
 
       // Unpersist the previous cached graph
-      prevGraph.unpersist(false)
+      prevGraph.unpersist()
 
       iteration += 1
     }
 
-    val newGl = new GraphLineage(workGraph.mapEdges(_ => ()), gl.lineageContext)
+    val newGl = workGraph.mapEdges(_ => ())
     newGl.setMetrics(metrics)
     newGl
   }

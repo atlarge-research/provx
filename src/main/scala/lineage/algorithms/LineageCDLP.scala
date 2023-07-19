@@ -12,9 +12,7 @@ object LineageCDLP {
 
   def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED]): GraphLineage[VertexId, Unit] =
   {
-    val graph = gl.getGraph()
-
-    val cdlpGraph = graph
+    val cdlpGraph = gl
       .mapVertices((vid, _) => vid)
       .mapEdges(_ => ())
 
@@ -41,10 +39,8 @@ object LineageCDLP {
 
     val initialMessage = Map[VertexId, Long]()
 
-    val newGl = new GraphLineage(cdlpGraph, gl.lineageContext)
-
     LineagePregel(
-      newGl, initialMessage, activeDirection = EdgeDirection.Out
+      cdlpGraph, initialMessage, activeDirection = EdgeDirection.Out
     )(
       vertexProgram, sendMessage, messageCombiner
     )

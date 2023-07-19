@@ -12,9 +12,7 @@ object LineageSSSP {
 
   def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED], source: VertexId): GraphLineage[Double, Double] = {
 
-    val graph = gl.getGraph()
-
-    val ssspGraph = graph.mapVertices((vid, _) => {
+    val ssspGraph = gl.mapVertices((vid, _) => {
         if (vid == source) {
           0.0
         } else {
@@ -43,7 +41,7 @@ object LineageSSSP {
     val initialMessage = Double.PositiveInfinity
 
     LineagePregel(
-      new GraphLineage(ssspGraph, gl.lineageContext), initialMessage, activeDirection = EdgeDirection.Out
+      ssspGraph, initialMessage, activeDirection = EdgeDirection.Out
     )(
       vertexProgram, sendMessage, messageCombiner
     )

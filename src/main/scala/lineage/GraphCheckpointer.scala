@@ -12,7 +12,7 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](lineageContext: LineageLocal
 
 //  private val uniqueDirectory = UUID.randomUUID().toString
 
-  def save(g: Graph[VD, ED]): Unit = {
+  def save(gl: GraphLineage[VD, ED]): Unit = {
     if (!lineageContext.isTracingEnabled) {
       return
     }
@@ -28,11 +28,11 @@ class GraphCheckpointer[VD: ClassTag, ED: ClassTag](lineageContext: LineageLocal
     val lineagePath = storageHandler.createNewLineageDirectory()
 
     val vertices = lineageContext.getMode() match {
-      case samplingMode: SamplingMode => samplingMode.filter(g.vertices)
-      case _ => g.vertices
+      case samplingMode: SamplingMode => samplingMode.filter(gl.vertices)
+      case _ => gl.vertices
     }
 
-    val newG = Graph(vertices, g.edges)
+    val newG = Graph(vertices, gl.edges)
 
     if (lineageContext.isTracingEnabled) {
       val path = f"${lineagePath}/${iteration}%04d.v"

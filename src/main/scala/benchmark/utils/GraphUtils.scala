@@ -1,7 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.utils
 
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphalyticsConfiguration
+import benchmark.configuration.GraphalyticsConfiguration
+
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph}
 

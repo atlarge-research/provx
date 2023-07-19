@@ -21,7 +21,7 @@ object LineagePregel extends Logging {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0, but got ${maxIterations}")
 
     val lineageContext = gl.lineageContext
-    var g = gl.getGraph().mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
+    var g = gl.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
 
     val checkpointer = new GraphCheckpointer[VD, ED](lineageContext)
 //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
@@ -45,7 +45,7 @@ object LineagePregel extends Logging {
     hooks.foreach(_.preStart(metrics))
 
     // Loop
-    var prevG: Graph[VD, ED] = null
+    var prevG: GraphLineage[VD, ED] = null
     var i = 0
     while (activeMessages > 0 && i < maxIterations) {
       val generation = ObservationSet()
@@ -89,19 +89,18 @@ object LineagePregel extends Logging {
     // Run post-stop hooks
     hooks.foreach(_.postStop(metrics))
 
-    val newGl = new GraphLineage(g, gl.lineageContext)
-    newGl.setMetrics(metrics)
+    g.setMetrics(metrics)
 
     // TODO: only unpersist when lineage data is not needed
 //    messageCheckpointer.unpersistDataSet()
 //    graphCheckpointer.deleteAllCheckpoints()
 //    messageCheckpointer.deleteAllCheckpoints()
-    newGl
+    g
   } // end of apply
 
   // Copied from GraphX source, since needed to access to private mapReduceTriplets method
   private def mapReduceTriplets[VD: ClassTag, ED: ClassTag, A: ClassTag](
-      g: Graph[VD, ED],
+      gl: GraphLineage[VD, ED],
       mapFunc: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
       reduceFunc: (A, A) => A,
       activeSetOpt: Option[(VertexRDD[_], EdgeDirection)] = None): VertexRDD[A] = {
@@ -118,6 +117,6 @@ object LineagePregel extends Logging {
       }
     }
 
-    g.aggregateMessages(sendMsg, reduceFunc)
+    gl.aggregateMessages(sendMsg, reduceFunc)
   }
 }
