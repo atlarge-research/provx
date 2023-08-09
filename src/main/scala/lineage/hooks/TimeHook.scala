@@ -1,19 +1,25 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.hooks
 
-import lineage.metrics.ObservationSet
-import lineage.metrics.Gauge
+import lineage.metrics.TimeUnit
+import lineage.GraphLineage
 
-class TimeHook(val gaugeName: String) {
+import scala.reflect.ClassTag
+
+case class TimeHook(gaugeName: String) extends Hook {
+
   var startTime: Option[Long] = None
-  def pre(): Unit = {
+
+  override def pre[VD: ClassTag, ED: ClassTag](inputGraph: GraphLineage[VD, ED]): Unit = {
     startTime = Some(System.nanoTime())
   }
 
-  def post(set: ObservationSet): Unit = {
+  override def post[VD: ClassTag, ED: ClassTag](outputGraph: GraphLineage[VD, ED]): Unit = {
+    assert(startTime.isDefined, "pre method not called on TimeHook")
+
     val iterationTime = System.nanoTime() - startTime.get
     assert(iterationTime >= 0)
-    set.add(Gauge(gaugeName, ujson.Obj("value" -> iterationTime, "unit" -> "ns")))
+    outputGraph.metrics.add(TimeUnit(gaugeName, iterationTime, "ns"))
     startTime = None
   }
 }

@@ -1,6 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
+import lineage.hooks.PregelHook
 import lineage.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
@@ -20,10 +21,9 @@ object LineagePregel extends Logging {
   : GraphLineage[VD, ED] = {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0, but got ${maxIterations}")
 
-    val lineageContext = gl.lineageContext
     var g = gl.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
 
-    val checkpointer = new GraphCheckpointer[VD, ED](lineageContext)
+    val checkpointer = new GraphCheckpointer[VD, ED]()
 //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
 //      checkpointInterval, graph.vertices.sparkContext)
 //    graphCheckpointer.update(g)
@@ -37,20 +37,21 @@ object LineagePregel extends Logging {
 
     checkpointer.save(g)
 
-    val hooks = lineageContext.hooksRegistry.allHooks
-
-    val metrics = ObservationSet()
+    // Get all PregelEventHooks
+    val hooks = LineageContext.hooks.all.filter {
+      case _: PregelHook => true
+      case _ => false
+    }.map(_.asInstanceOf[PregelHook])
 
     // Run pre-start hooks
-    hooks.foreach(_.preStart(metrics))
+    hooks.foreach(_.preStart(g))
 
     // Loop
     var prevG: GraphLineage[VD, ED] = null
     var i = 0
     while (activeMessages > 0 && i < maxIterations) {
-      val generation = ObservationSet()
 
-      hooks.foreach(_.preIteration(generation))
+      hooks.foreach(_.preIteration(g))
 
       // Receive the messages and update the vertices.
       prevG = g
@@ -61,14 +62,13 @@ object LineagePregel extends Logging {
       // Send new messages, skipping edges where neither side received a message. We must cache
       // messages so it can be materialized on the next line, allowing us to uncache the previous
       // iteration.
-      messages = mapReduceTriplets(
-        g, sendMsg, mergeMsg, Some((oldMessages, activeDirection)))
+      messages = mapReduceTriplets(g, sendMsg, mergeMsg)
       // The call to count() materializes `messages` and the vertices of `g`. This hides oldMessages
       // (depended on by the vertices of g) and the vertices of prevG (depended on by oldMessages
       // and the vertices of g).
 //      messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
       activeMessages = messages.count()
-      generation.add(Gauge("activeMessages", activeMessages))
+      g.metrics.add(Gauge("activeMessages", activeMessages))
 
       logInfo("Pregel finished iteration " + i)
 
@@ -78,33 +78,27 @@ object LineagePregel extends Logging {
       prevG.edges.unpersist()
 
       // Run post-iteration hooks
-      hooks.foreach(_.postIteration(generation))
-      metrics.add(generation)
-      g.setMetrics(generation)
+      hooks.foreach(_.postIteration(g))
       g.annotations += s"iteration=${i}"
 
       i += 1
     }
 
     // Run post-stop hooks
-    hooks.foreach(_.postStop(metrics))
-
-    val finalG = GraphLineage(g)
-    finalG.setMetrics(metrics)
+    hooks.foreach(_.postStop(g))
 
     // TODO: only unpersist when lineage data is not needed
 //    messageCheckpointer.unpersistDataSet()
 //    graphCheckpointer.deleteAllCheckpoints()
 //    messageCheckpointer.deleteAllCheckpoints()
-    finalG
+    GraphLineage(g)
   } // end of apply
 
   // Copied from GraphX source, since needed to access to private mapReduceTriplets method
   private def mapReduceTriplets[VD: ClassTag, ED: ClassTag, A: ClassTag](
       gl: GraphLineage[VD, ED],
       mapFunc: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
-      reduceFunc: (A, A) => A,
-      activeSetOpt: Option[(VertexRDD[_], EdgeDirection)] = None): VertexRDD[A] = {
+      reduceFunc: (A, A) => A): VertexRDD[A] = {
     def sendMsg(ctx: EdgeContext[VD, ED, A]): Unit = {
       mapFunc(ctx.toEdgeTriplet).foreach { kv =>
         val id = kv._1

@@ -8,7 +8,8 @@ class MetricsTestSuite extends AnyFunSuite {
     var counter = Counter.zero("test")
     counter = counter.increment()
     counter = counter.increment()
-    assert(counter.get == 2)
+    counter = counter.decrement()
+    assert(counter.get == 1)
   }
 
   test("ObservationSet") {
@@ -22,6 +23,6 @@ class MetricsTestSuite extends AnyFunSuite {
 
     obsSet.add(obsSet2)
 
-    println(obsSet.serialize())
+    println(JSONSerializer.serialize(obsSet))
   }
 }

@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{GraphLineage, LineageContext, LineagePregel}
+import lineage.{GraphLineage, LineagePregel}
 
 import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, VertexId}
 

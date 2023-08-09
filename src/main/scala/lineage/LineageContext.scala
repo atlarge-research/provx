@@ -1,6 +1,9 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
+import lu.magalhaes.gilles.provxlib.lineage.hooks.HooksRegistry
+import lu.magalhaes.gilles.provxlib.lineage.storage.DefaultStorageHandler
+
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 
@@ -15,7 +18,11 @@ object LineageContext {
     nextGLId.getAndIncrement()
   }
 
+  val hooks = new HooksRegistry()
+
   val graph = new ProvenanceGraph()
+
+  val storageHandler = new DefaultStorageHandler()
 
   private var tracingEnabled = false
   def isTracingEnabled: Boolean = tracingEnabled

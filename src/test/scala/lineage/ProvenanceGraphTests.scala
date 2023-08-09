@@ -12,7 +12,7 @@ class ProvenanceGraphTests extends AnyFunSuite with LocalSparkContext {
 //    withSpark { sc =>
 //      assert(true)
 //      val g = Graph(sc.parallelize(Seq((1L, ()))), sc.parallelize(Seq(Edge(1, 1, ()))))
-//      val gl = new GraphLineage(g, new LineageLocalContext(sc))
+//      val gl = new GraphLineage(g)
 //
 //      val res = gl.bfs(1)
 //

@@ -1,8 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{GraphLineage, LineageLocalContext, LineagePregel}
-import lineage.metrics.ObservationSet
+import lineage.{GraphLineage, LineagePregel}
 
 import org.apache.spark.graphx._
 

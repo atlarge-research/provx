@@ -1,25 +1,18 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import benchmark.utils.GraphUtils
-import utils.{GraphalyticsOutputReader, LocalSparkContext}
+import utils.{GraphalyticsOutputReader, GraphTestLoader, LocalSparkContext}
 
-import org.apache.spark.SparkContext
+import lu.magalhaes.gilles.provxlib.lineage.hooks.Hook
 import org.scalatest.funsuite.AnyFunSuite
+
+import scala.reflect.ClassTag
 
 class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext {
 
-  def loadTestGraph(sc: SparkContext, algorithm: String): (GraphLineage[Unit, Double], String) = {
-    val expectedOutput = getClass.getResource(s"/example-directed-${algorithm}").toString
-    val parent = "/" + expectedOutput.split("/").drop(1).dropRight(1).mkString("/")
-    val (graph, _) = GraphUtils.load(sc, parent + "/example-directed")
-    val llc = new LineageLocalContext(graph.vertices.sparkContext)
-    (new GraphLineage(graph, llc), expectedOutput)
-  }
-
   test("BFS") {
     withSpark { sc =>
-      val (gl, expectedOutputPath) = loadTestGraph(sc, "BFS")
+      val (gl, expectedOutputPath) = GraphTestLoader.load(sc, "BFS")
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
       val actualResult = gl.bfs(1).vertices.collect().sortWith(_._1 < _._1)
       println("Expected results: ", expectedResult.foreach(print(_, " ")))
@@ -30,7 +23,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
 
   test("SSSP") {
     withSpark { sc =>
-      val (gl, expectedOutputPath) = loadTestGraph(sc, "SSSP")
+      val (gl, expectedOutputPath) = GraphTestLoader.load(sc, "SSSP")
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
       val actualResult = gl.sssp(1).vertices.collect().sortWith(_._1 < _._1)
 
@@ -50,7 +43,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
 
   test("WCC") {
     withSpark { sc =>
-      val (gl, expectedOutputPath) = loadTestGraph(sc, "WCC")
+      val (gl, expectedOutputPath) = GraphTestLoader.load(sc, "WCC")
       val actualResult = gl.wcc().vertices.collect().sortWith(_._1 < _._1)
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
 
@@ -60,7 +53,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
 
   test("PageRank") {
     withSpark { sc =>
-      val (gl, expectedOutputPath) = loadTestGraph(sc, "PR")
+      val (gl, expectedOutputPath) = GraphTestLoader.load(sc, "PR")
       val expectedResult = GraphalyticsOutputReader.readFloat(expectedOutputPath)
       val actualResult = gl.pageRank(2)
         .vertices
@@ -79,4 +72,29 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     }
   }
 
+  test("Hook called") {
+    withSpark { sc =>
+      class CalledHook(f: () => Unit) extends Hook {
+
+        override def shouldInvoke(eventName: String): Boolean = eventName == "pageRank"
+
+        override def post[VD: ClassTag, ED: ClassTag](outputGraph: GraphLineage[VD, ED]): Unit = {
+          f()
+        }
+      }
+
+      var hookCalled = false
+
+      def called(): Unit = {
+        hookCalled = true
+      }
+
+      LineageContext.hooks.register(new CalledHook(called))
+
+      val (gl, _) = GraphTestLoader.load(sc, "PR")
+      gl.pageRank(1)
+
+      assert(hookCalled, "The hook was not called.")
+    }
+  }
 }

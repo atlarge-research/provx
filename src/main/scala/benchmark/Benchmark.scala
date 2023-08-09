@@ -1,11 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
+import benchmark.configuration.BenchmarkConfig
 import benchmark.utils.{GraphUtils, TimeUtils}
 import lineage.GraphLineage.graphToGraphLineage
-import lineage.LineageLocalContext
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration}
 
+import lu.magalhaes.gilles.provxlib.lineage.metrics.JSONSerializer
 import mainargs.{arg, main, Flag, ParserForClass}
 import org.apache.spark.sql.SparkSession
 
@@ -44,12 +44,16 @@ object Benchmark {
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage()
 
-    gl.lineageContext.getStorageHandler.setLineageDir(args.benchmarkConfig.lineagePath)
-    if (args.lineageActive.value) {
-      gl.lineageContext.enableTracing()
-    } else {
-      gl.lineageContext.disableTracing()
-    }
+    // FIXME: set lineage directory before starting
+
+//    LineageContext.storageHandler.setLineageDirectory
+//
+//    gl.getStorageHandler.setLineageDir(args.benchmarkConfig.lineagePath)
+//    if (args.lineageActive.value) {
+//      gl.lineageContext.enableTracing()
+//    } else {
+//      gl.lineageContext.disableTracing()
+//    }
 
 
     val (sol, elapsedTime) = TimeUtils.timed {
@@ -72,7 +76,7 @@ object Benchmark {
     )
 
     if (args.lineageActive.value) {
-      run("iterations") = sol.metrics.serialize()
+      run("iterations") = JSONSerializer.serialize(sol.metrics)
       // TODO(gm): include lineage directory in HDFS
       // run("lineageDirectory") = metrics.getLineageDirectory()
     }

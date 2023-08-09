@@ -57,4 +57,19 @@ class ProvenanceGraph {
     pairs.filter(x => x._1.id == gl.id).map(g => g._2)
   }
 
+  def previous(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
+    pairs.filter(x => x._2.id == gl.id).map(g => g._1)
+  }
+
+  def first(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
+    // traverse list of pairs up to root
+    // TODO: implement
+    throw new NotImplementedError("first not implemented yet")
+  }
+
+  def last(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
+    // traverse list of pairs
+    // TODO: implement
+    throw new NotImplementedError("last not implemented yet")
+  }
 }

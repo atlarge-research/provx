@@ -78,6 +78,6 @@ object LineageLCC {
     canonicalGraph.edges.unpersist(blocking = false)
 
     // TODO: set metrics
-    lccGraph.mapEdges(_ => Unit)
+    lccGraph.mapEdges(_ => ())
   }
 }

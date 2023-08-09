@@ -3,28 +3,19 @@ package lineage.metrics
 
 import scala.collection.mutable.ArrayBuffer
 
-case class ObservationSet() extends Observation(name = "obs-set") {
-
-  private val observations = ArrayBuffer[Observation]()
+case class ObservationSet(value: ArrayBuffer[Observation] = ArrayBuffer.empty) extends Observation {
 
   def add(element: Observation): Unit = {
-    observations += element
+    value += element
   }
 
-  def values: Set[Observation] = observations.toSet
+  def values: Set[Observation] = value.toSet
+
+  def merge(newObservation: ObservationSet): Unit = {
+    value ++= newObservation.values
+  }
 
   def filter(f: Observation => Boolean): Set[Observation] = {
-    observations.filter(f).toSet
+    value.filter(f).toSet
   }
-
-  def serialize(): ujson.Obj =
-    ujson.Obj(
-      "type" -> "ObservationSet",
-      "values" -> ujson.Arr(observations.map {
-        case c: Counter => c.serialize()
-        case g: Gauge => g.serialize()
-        case o: ObservationSet => o.serialize()
-      })
-    )
-
 }

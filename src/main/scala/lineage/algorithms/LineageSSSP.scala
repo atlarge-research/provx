@@ -1,10 +1,9 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.metrics.ObservationSet
-import lineage.{GraphLineage, LineageLocalContext, LineagePregel}
+import lineage.{GraphLineage, LineagePregel}
 
-import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, Graph, VertexId}
+import org.apache.spark.graphx.{EdgeDirection, EdgeTriplet, VertexId}
 
 import scala.reflect.ClassTag
 

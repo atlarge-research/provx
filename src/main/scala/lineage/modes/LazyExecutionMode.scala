@@ -1,6 +1,4 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.modes
 
-trait Mode {
-
-}
+case class LazyExecutionMode() extends ExecutionMode

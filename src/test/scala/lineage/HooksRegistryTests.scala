@@ -1,37 +1,39 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import lineage.hooks.{HooksRegistry, IterationCounterHook}
+import lineage.hooks.{HooksRegistry, CounterHook}
 
 import org.scalatest.funsuite.AnyFunSuite
 
 class HooksRegistryTests extends AnyFunSuite {
   test("Register a hook") {
     val registry = new HooksRegistry()
-    val hook = new IterationCounterHook()
+    val originalSize = registry.all.size
+    val hook = CounterHook()
     registry.register(hook)
-    assert(registry.allHooks.size == 4)
+    assert(registry.all.size == originalSize + 1)
   }
 
   test("Deregister a hook") {
     val registry = new HooksRegistry()
-    val hook = new IterationCounterHook()
+    val originalSize = registry.all.size
+    val hook = CounterHook()
     registry.register(hook)
-    assert(registry.allHooks.size == 4)
+    assert(registry.all.size == originalSize + 1)
     registry.deregister(hook)
-    assert(registry.allHooks.size == 3)
+    assert(registry.all.size == originalSize)
   }
 
   test("Clear all user hooks") {
     val registry = new HooksRegistry()
+    val originalSize = registry.all.size
+    val hook = CounterHook()
 
-    val hook = new IterationCounterHook()
     registry.register(hook)
-    assert(registry.allHooks.size == 4)
+    assert(registry.all.size == originalSize + 1)
 
     registry.clear()
-
     // Only default hooks are left
-    assert(registry.allHooks.isEmpty)
+    assert(registry.all.isEmpty)
   }
 }

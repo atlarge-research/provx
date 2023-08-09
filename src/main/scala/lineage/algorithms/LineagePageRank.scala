@@ -32,7 +32,7 @@ object LineagePageRank extends Logging {
       workGraph.outDegrees.mapValues(_ => 0.0)
     ).cache()
 
-    val checkpointer = new GraphCheckpointer[Double, Double](gl.lineageContext)
+    val checkpointer = new GraphCheckpointer[Double, Double]()
     val metrics = ObservationSet()
 
     checkpointer.save(workGraph)
@@ -68,9 +68,7 @@ object LineagePageRank extends Logging {
     }
 
     val newGl = workGraph.mapEdges(_ => ())
-
-    val finalG = GraphLineage(newGl)
-    finalG.setMetrics(metrics)
-    finalG
+    newGl.metrics.merge(metrics)
+    newGl
   }
 }
