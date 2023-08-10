@@ -9,7 +9,7 @@ object JSONSerializer {
         "name" -> c.name,
         "value" -> c.value,
       )
-      case g: Gauge => ujson.Obj(
+      case g: Gauge[_] => ujson.Obj(
         "type" -> g.getClass.getName,
         "name" -> g.name,
         "value" -> g.value.toString,

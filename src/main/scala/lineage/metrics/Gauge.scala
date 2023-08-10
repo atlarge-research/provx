@@ -1,4 +1,4 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.metrics
 
-case class Gauge(name: String, value: Number) extends Observation
+case class Gauge[T](name: String, value: T) extends Observation

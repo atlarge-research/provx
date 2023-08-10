@@ -35,6 +35,7 @@ object LineagePregel extends Logging {
 //    messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
     var activeMessages = messages.count()
 
+
     checkpointer.save(g)
 
     // Get all PregelEventHooks
