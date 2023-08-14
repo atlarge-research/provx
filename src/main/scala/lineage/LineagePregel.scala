@@ -2,9 +2,10 @@ package lu.magalhaes.gilles.provxlib
 package lineage
 
 import lineage.hooks.PregelHook
-import lineage.metrics.{Gauge, ObservationSet}
+import lineage.metrics.Gauge
 
 import org.apache.spark.graphx._
+
 import org.apache.spark.internal.Logging
 
 import scala.reflect.ClassTag
@@ -18,10 +19,11 @@ object LineagePregel extends Logging {
   (vprog: (VertexId, VD, A) => VD,
    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
    mergeMsg: (A, A) => A)
-  : GraphLineage[VD, ED] = Utils.trace(gl, Algorithm("pregel")) {
+  : GraphLineage[VD, ED] = Utils.trace(gl, PregelAlgorithm()) {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0, but got ${maxIterations}")
 
     var g = gl.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
+    LineageContext.graph.add(gl, g, PregelLifecycleStart())
 
     val checkpointer = new GraphCheckpointer[VD, ED]()
 //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
@@ -53,13 +55,15 @@ object LineagePregel extends Logging {
 
       hooks.foreach(_.preIteration(g))
 
-      // Receive the messages and update the vertices.
-      Utils.trace(prevG, PregelIteration(i)) {
-        prevG = g
-        g = g.joinVertices(messages)(vprog)
-        checkpointer.save(g)
-        g
+      if (i == 1) {
+        LineageContext.graph.add(prevG, g, PregelIteration(0))
       }
+
+      // Receive the messages and update the vertices.
+      prevG = g
+      g = g.joinVertices(messages)(vprog)
+      checkpointer.save(g)
+      LineageContext.graph.add(prevG, g, PregelIteration(i))
 
       val oldMessages = messages
       // Send new messages, skipping edges where neither side received a message. We must cache
