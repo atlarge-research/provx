@@ -9,6 +9,6 @@
   languages.java.jdk.package = pkgs.jdk11;
   languages.scala = {
     enable = true;
-    package = pkgs.scala_2_12;
+    package = pkgs.scala_2_13;
   };
 }

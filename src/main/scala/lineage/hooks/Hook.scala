@@ -1,13 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.hooks
 
-import lineage.GraphLineage
+import lineage.{GraphLineage, ProvenanceGraph}
 
 import scala.reflect.ClassTag
 
 abstract class Hook {
 
-  def shouldInvoke(eventName: String): Boolean = true
+  def shouldInvoke(event: ProvenanceGraph.Relation): Boolean = true
 
   // no way to pass in metadata to pre and post methods
 

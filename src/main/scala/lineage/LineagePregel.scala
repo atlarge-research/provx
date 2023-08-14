@@ -18,7 +18,7 @@ object LineagePregel extends Logging {
   (vprog: (VertexId, VD, A) => VD,
    sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
    mergeMsg: (A, A) => A)
-  : GraphLineage[VD, ED] = {
+  : GraphLineage[VD, ED] = Utils.trace(gl, Algorithm("pregel")) {
     require(maxIterations > 0, s"Maximum number of iterations must be greater than 0, but got ${maxIterations}")
 
     var g = gl.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
@@ -34,7 +34,6 @@ object LineagePregel extends Logging {
 //      checkpointInterval, graph.vertices.sparkContext)
 //    messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
     var activeMessages = messages.count()
-
 
     checkpointer.save(g)
 
@@ -55,9 +54,12 @@ object LineagePregel extends Logging {
       hooks.foreach(_.preIteration(g))
 
       // Receive the messages and update the vertices.
-      prevG = g
-      g = g.joinVertices(messages)(vprog)
-      checkpointer.save(g)
+      Utils.trace(prevG, PregelIteration(i)) {
+        prevG = g
+        g = g.joinVertices(messages)(vprog)
+        checkpointer.save(g)
+        g
+      }
 
       val oldMessages = messages
       // Send new messages, skipping edges where neither side received a message. We must cache
@@ -67,7 +69,7 @@ object LineagePregel extends Logging {
       // The call to count() materializes `messages` and the vertices of `g`. This hides oldMessages
       // (depended on by the vertices of g) and the vertices of prevG (depended on by oldMessages
       // and the vertices of g).
-//      messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
+      //      messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
       activeMessages = messages.count()
       g.metrics.add(Gauge("activeMessages", activeMessages))
 
@@ -92,7 +94,7 @@ object LineagePregel extends Logging {
 //    messageCheckpointer.unpersistDataSet()
 //    graphCheckpointer.deleteAllCheckpoints()
 //    messageCheckpointer.deleteAllCheckpoints()
-    GraphLineage(g)
+    g
   } // end of apply
 
   // Copied from GraphX source, since needed to access to private mapReduceTriplets method

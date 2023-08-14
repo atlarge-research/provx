@@ -76,7 +76,7 @@ class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite with LocalSparkContext
     withSpark { sc =>
       class CalledHook(f: () => Unit) extends Hook {
 
-        override def shouldInvoke(eventName: String): Boolean = eventName == "pageRank"
+        override def shouldInvoke(eventName: ProvenanceGraph.Relation): Boolean = eventName == "pageRank"
 
         override def post[VD: ClassTag, ED: ClassTag](outputGraph: GraphLineage[VD, ED]): Unit = {
           f()

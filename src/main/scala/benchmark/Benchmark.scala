@@ -36,7 +36,7 @@ object Benchmark {
 
     val metricsLocation = args.outputDir / "metrics.json"
 
-    val spark = SparkSession.builder
+    val spark = SparkSession.builder()
       .appName(s"ProvX ${args.algorithm}/${args.dataset}/${args.lineageActive}/${args.runNr} benchmark")
       .getOrCreate()
 
@@ -70,7 +70,7 @@ object Benchmark {
 
     val run = ujson.Obj(
       "duration" -> ujson.Obj(
-        "amount" -> ujson.Num(elapsedTime),
+        "amount" -> ujson.Num(elapsedTime.toDouble),
         "unit" -> "ns"
       )
     )
@@ -115,7 +115,7 @@ object Benchmark {
   }
 
   def main(args: Array[String]): Unit = {
-    val (_, elapsedTime) = run(ParserForClass[Config].constructOrExit(args))
+    val (_, elapsedTime) = run(ParserForClass[Config].constructOrExit(args.toIndexedSeq))
     println(s"Benchmark run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
   }
 }

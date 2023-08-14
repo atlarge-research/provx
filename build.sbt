@@ -1,6 +1,6 @@
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.13.10"
 
 lazy val root = (project in file("."))
   .settings(
@@ -8,7 +8,7 @@ lazy val root = (project in file("."))
     idePackagePrefix := Some("lu.magalhaes.gilles.provxlib")
   )
 
-val sparkVersion = "3.2.3"
+val sparkVersion = "3.3.2"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-graphx" % sparkVersion % "provided",
@@ -19,5 +19,7 @@ libraryDependencies ++= Seq(
   "com.lihaoyi" %% "requests" % "0.8.0",
   "com.lihaoyi" %% "mainargs" % "0.5.0",
   "com.lihaoyi" %% "sourcecode" % "0.3.0",
-  "org.scalatest" %% "scalatest" % "3.2.15" % "test"
+  "org.scalatest" %% "scalatest" % "3.2.15" % "test",
+  "org.scala-graph" %% "graph-core" % "2.0.0",
+  "org.scala-graph" %% "graph-dot" % "2.0.0"
 )

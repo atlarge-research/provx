@@ -1,14 +1,19 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.hooks
 
-import lineage.GraphLineage
+import lineage.{Algorithm, EventType, GraphLineage, Operation, ProvenanceGraph}
 
 import scala.reflect.ClassTag
 
 abstract class PregelHook(lifecycleHooks: Seq[Hook], iterationHooks: Seq[Hook]) extends Hook {
 
   // TODO: this should only be invoked on pregel use
-  override def shouldInvoke(eventName: String): Boolean = true
+  override def shouldInvoke(event: ProvenanceGraph.Relation): Boolean = {
+    event.event match {
+      case Algorithm(name) => name == "pregel"
+      case _ => false
+    }
+  }
 
   def preStart[VD: ClassTag, ED: ClassTag](preprocessedGraph: GraphLineage[VD, ED]): Unit =
     lifecycleHooks.foreach(_.pre(preprocessedGraph))

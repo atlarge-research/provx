@@ -1,8 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package lineage
 
-import lu.magalhaes.gilles.provxlib.lineage.hooks.HooksRegistry
-import lu.magalhaes.gilles.provxlib.lineage.storage.DefaultStorageHandler
+import lineage.hooks.HooksRegistry
+import lineage.storage.DefaultStorageHandler
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
