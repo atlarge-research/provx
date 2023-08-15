@@ -2,7 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package lineage
 
 import lineage.hooks.HooksRegistry
-import lineage.storage.DefaultStorageHandler
+import lineage.storage.{NullStorageHandler, StorageHandler}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
@@ -22,9 +22,13 @@ object LineageContext {
 
   val graph = new ProvenanceGraph()
 
-  val storageHandler = new DefaultStorageHandler()
+  var storageHandler: StorageHandler = new NullStorageHandler()
 
-  private var tracingEnabled = false
+  def setStorageHandler(s: StorageHandler): Unit = {
+    storageHandler = s
+  }
+
+  private var tracingEnabled = true
   def isTracingEnabled: Boolean = tracingEnabled
 
   def enableTracing(): Unit = {

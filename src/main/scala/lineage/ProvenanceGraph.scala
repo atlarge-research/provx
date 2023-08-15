@@ -7,10 +7,16 @@ import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
 import scalax.collection.generic.{AbstractDiEdge, Edge}
 import scalax.collection.immutable.Graph
 import scalax.collection.io.dot.{DotAttr, DotEdgeStmt, DotGraph, DotNodeStmt, DotRootGraph, Graph2DotExport, Id, NodeId}
-import scalax.collection.{AnyGraph, GraphLike}
+import scalax.collection.AnyGraph
 
 object ProvenanceGraph {
-  case class Node(g: Option[GraphLineage[_, _]])
+  type NodePredicate = Node => Boolean
+  type EdgePredicate = Relation => Boolean
+
+  val noNode: NodePredicate = _ => false
+  val noEdge: EdgePredicate = _ => false
+
+  case class Node(g: GraphLineage[_, _])
 
   case class Relation(input: Node, output: Node, event: EventType)
     extends AbstractDiEdge(input, output)
@@ -21,11 +27,10 @@ object ProvenanceGraph {
 }
 
 class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
-
   import ProvenanceGraph._
 
   def add(source: GraphLineage[_, _], target: GraphLineage[_, _], attr: EventType): Unit = {
-    graph = graph + (Node(Some(source)) ~> Node(Some(target)) :+ attr)
+    graph = graph + (Node(source) ~> Node(target) :+ attr)
   }
 
   def toDot(): String = {
@@ -44,8 +49,8 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
       Some(
         root,
         DotEdgeStmt(
-          NodeId(s"G${innerEdge.outer.input.g.get.id}"),
-          NodeId(s"G${innerEdge.outer.output.g.get.id}"),
+          NodeId(s"G${innerEdge.outer.input.g.id}"),
+          NodeId(s"G${innerEdge.outer.output.g.id}"),
           List(
             DotAttr(Id("label"), Id(edge)),
             DotAttr(Id("color"), Id(edgeColor)),
@@ -57,20 +62,20 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
     }
 
     def nodeTransformer(innerNode: Graph[Node, Relation]#NodeT): Option[(DotGraph, DotNodeStmt)] = {
-      val nodeId = innerNode.outer.g.get.id
+      val g = innerNode.outer.g
+      val nodeId = g.id
       Some(
         root, DotNodeStmt(
           NodeId(s"G${nodeId}"),
           attrList = List(
             DotAttr(Id("fillcolor"), Id("cadetblue1")),
             DotAttr(Id("style"), Id("filled")),
+            DotAttr(Id("label"), Id(s"G${nodeId}\\n${g.storageLocation.getOrElse("")}")),
           )
 
         )
       )
     }
-
-
 
     graph.toDot(
       root,
@@ -79,13 +84,7 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
     )
   }
 
-  type NodePredicate = Node => Boolean
-  type EdgePredicate = Relation => Boolean
-
-  val anyNode: NodePredicate = _ => true
-  val anyEdge: EdgePredicate = _ => true
-
-  def filter(nodeP: NodePredicate = anyNode, edgeP: EdgePredicate = anyEdge): ProvenanceGraph = {
+  def filter(nodeP: NodePredicate, edgeP: EdgePredicate): ProvenanceGraph = {
     // required for some typing business that I'm not smart enough to understand
     implicit class ForIntelliJ[N, E <: Edge[N]](val g: Graph[N, E]) {
       def asAnyGraph: AnyGraph[N, E] = g
@@ -100,17 +99,19 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
     new ProvenanceGraph(result.asInstanceOf[Graph[Node, Relation]])
   }
 
-  // TODO: fix next/previous, source and sink operations on provenance graph
+  def byId(id: Long): Option[GraphLineage[_, _]] = {
+    graph.nodes.find((node: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
+      node.outer.g.id == id
+    }).map(_.outer.g)
+  }
 
-//  def next(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
-//  }
-//
-//  def previous(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
-//  }
+  def export(): String = {
+    // TODO: implement this myself
+    throw new NotImplementedError("no export")
+  }
 
-//  def first(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
-//  }
-//
-//  def last(gl: GraphLineage[_, _]): Seq[GraphLineage[_, _]] = {
-//  }
+  def load(): String = {
+    // TODO: implement this myself
+    throw new NotImplementedError("no export")
+  }
 }

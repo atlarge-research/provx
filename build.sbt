@@ -21,5 +21,6 @@ libraryDependencies ++= Seq(
   "com.lihaoyi" %% "sourcecode" % "0.3.0",
   "org.scalatest" %% "scalatest" % "3.2.15" % "test",
   "org.scala-graph" %% "graph-core" % "2.0.0",
-  "org.scala-graph" %% "graph-dot" % "2.0.0"
+  "org.scala-graph" %% "graph-dot" % "2.0.0",
+  "org.scala-graph" %% "graph-json" % "2.0.0"
 )

@@ -11,7 +11,7 @@ case class TimeHook(gaugeName: String) extends Hook {
   var startTime: Option[Long] = None
 
   // TODO: make this a parameter when this should be executed
-  override def shouldInvoke(event: ProvenanceGraph.Relation): Boolean = true
+  override def shouldInvoke(event: EventType): Boolean = true
 
   override def pre[VD: ClassTag, ED: ClassTag](inputGraph: GraphLineage[VD, ED]): Unit = {
     assert(startTime.isEmpty, "start time already set")

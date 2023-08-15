@@ -8,8 +8,8 @@ import scala.reflect.ClassTag
 abstract class PregelHook(lifecycleHooks: Seq[Hook], iterationHooks: Seq[Hook]) extends Hook {
 
   // TODO: this should only be invoked on pregel use
-  override def shouldInvoke(event: ProvenanceGraph.Relation): Boolean = {
-    event.event match {
+  override def shouldInvoke(event: EventType): Boolean = {
+    event match {
       case Algorithm(name) => name == "pregel"
       case _ => false
     }

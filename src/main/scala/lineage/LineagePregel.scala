@@ -86,7 +86,6 @@ object LineagePregel extends Logging {
 
       // Run post-iteration hooks
       hooks.foreach(_.postIteration(g))
-      g.annotations += s"iteration=${i}"
 
       i += 1
     }
