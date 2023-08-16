@@ -4,24 +4,28 @@ package benchmark.configuration
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
-class BenchmarkConfig(path: String) {
+class BenchmarkConfig(val path: String) {
   object RequiredKeys extends Enumeration {
     type RequiredKeys = Value
     // Inputs
-    // Where the graphs are stored on HDFS
-    val datasetPath = Value("benchmark.datasetPath")
+    // Number of repetitions for algorithm and dataset combination
+    val repetitions = Value("benchmark.repetitions")
 
     // Algorithms to run (BFS, PR, WCC, SSP, LCC, PR)
     val algorithms = Value("benchmark.algorithms")
 
-    // Where to store metrics and execution logs
-    val experimentsPath = Value("benchmark.experimentsPath")
-
     // Name of the graphs to run experiments for
     val graphs = Value("benchmark.graphs")
 
-    // Number of repetitions for algorithm and dataset combination
-    val repetitions = Value("benchmark.repetitions")
+    // Where the graphs are stored on HDFS
+    val datasetPath = Value("benchmark.datasetPath")
+
+    // Where to store metrics and execution logs
+    val experimentsPath = Value("benchmark.experimentsPath")
+
+    // Location of benchmark jar
+    val benchmarkJar = Value("runner.jar")
+
 
     // Outputs (HDFS)
     // Where to store the lineage information
@@ -32,9 +36,6 @@ class BenchmarkConfig(path: String) {
 
     // Where to store Spark event logs
     val sparkLogs = Value("benchmark.sparkLogs")
-
-    // Location of benchmark jar
-    val benchmarkJar = Value("runner.jar")
   }
   private lazy val config = SafeConfiguration.fromLocalPath(path).get
 

@@ -1,9 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
+import benchmark.configuration.{
+  BenchmarkConfig,
+  GraphalyticsConfiguration,
+  NotificationsConfig
+}
 import benchmark.utils._
 
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig}
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.launcher.SparkLauncher
@@ -15,11 +19,12 @@ object Runner {
   import utils.CustomCLIArguments._
 
   @main
-  case class Config(@arg(name = "config", doc = "Graphalytics benchmark configuration")
-                    benchmarkConfig: BenchmarkConfig,
-                    @arg(name = "description", doc = "Experiment description")
-                    description: String = "")
-
+  case class Config(
+      @arg(name = "config", doc = "Graphalytics benchmark configuration")
+      benchmarkConfig: BenchmarkConfig,
+      @arg(name = "description", doc = "Experiment description")
+      description: String = ""
+  )
 
   def run(args: Config): Long = {
     if (!args.benchmarkConfig.validate()) {
@@ -28,20 +33,23 @@ object Runner {
     }
 
     // Create current experiment directory
-    val currentExperimentPath = args.benchmarkConfig.createCurrentExperimentDir()
+    val currentExperimentPath =
+      args.benchmarkConfig.createCurrentExperimentDir()
     if (currentExperimentPath.isEmpty) {
       println("Aborting benchmark. Experiments directory exists.")
       return 1
     }
 
+    val experimentPath = currentExperimentPath.get
+
     // Get experiment description from user via readline (if not specified at CLI)
-    val descriptionFilePath = currentExperimentPath.get / "description.txt"
+    val descriptionFilePath = experimentPath / "description.txt"
     FileUtils.writeFile(descriptionFilePath.toString(), Seq(args.description))
 
     // Copy benchmark config for reproducibility
     os.copy(
       os.Path(args.benchmarkConfig.getPath),
-      currentExperimentPath.get / "config.properties"
+      experimentPath / "config.properties"
     )
 
     args.benchmarkConfig.debug()
@@ -52,49 +60,52 @@ object Runner {
       return 1
     }
 
-    val configurations = generateConfigurations(args.benchmarkConfig)
+    val configurations =
+      generateConfigurations(experimentPath, args.benchmarkConfig)
 
     println(s"Configurations count: ${configurations.length}")
 
-    for ((dataset, algorithm, withLineage, runNr, experimentID) <- configurations) {
-
-      val expDir = currentExperimentPath.get / s"experiment-${experimentID}"
+    for (experiment <- Seq(configurations.head)) {
+      val expDir =
+        currentExperimentPath.get / s"experiment-${experiment.experimentID}"
 
       os.makeDir.all(expDir)
 
-      println(s"Experiment ${experimentID}: algorithm=${algorithm} graph=${dataset} lineage=${withLineage} run=${runNr}")
+      println(
+        Seq(
+          s"Experiment ${experiment.experimentID}:",
+          s"algorithm=${experiment.algorithm}",
+          s"graph=${experiment.dataset}",
+          s"lineage=${experiment.lineageActive}",
+          s"run=${experiment.runNr}"
+        ) mkString " "
+      )
 
       val directory = new File(System.getProperty("user.dir"))
       val outputFile = new File((expDir / "stdout.log").toString)
       val errorFile = new File((expDir / "stderr.log").toString)
 
       val (app, elapsedTime) = TimeUtils.timed {
-        val requiredArgs = Array(
-          "--config", args.benchmarkConfig.getPath,
-          "--algorithm", algorithm,
-          "--dataset", dataset,
-          "--runNr", runNr.toString,
-          "--outputDir", expDir.toString,
-          "--experimentID", experimentID.toString
+        val appArgs = Array(
+          "--config",
+          ExperimentDescriptionSerializer.serialize(experiment)
         )
-        val appArgs = if (withLineage) {
-          requiredArgs ++ Array("--lineage")
-        } else {
-          requiredArgs
-        }
+
+        println("Running configuration:")
+        println(appArgs(1))
 
         val app = new SparkLauncher()
           .directory(directory)
           .setAppResource(args.benchmarkConfig.benchmarkJar)
           .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
-          .addAppArgs(appArgs:_*)
+          .addAppArgs(appArgs: _*)
           .redirectOutput(outputFile)
           .redirectError(errorFile)
           .setSparkHome(sparkHome.get)
           .setConf("spark.eventLog.enabled", "true")
           .setConf("spark.eventLog.dir", args.benchmarkConfig.sparkLogs)
-          .setConf("spark.driver.memory", "8G")
-          .setConf("spark.executor.memory", "8G")
+//          .setConf("spark.driver.memory", "8G")
+//          .setConf("spark.executor.memory", "8G")
           .setVerbose(true)
           .launch()
 
@@ -107,10 +118,10 @@ object Runner {
         println(s"Error occurred: exit code ${app.exitValue()}")
         return 1
       } else {
-        val lineageStatus = if (withLineage) 1 else 0
+        val lineageStatus = if (experiment.lineageActive) 1 else 0
         PushoverNotifier.notify(
           new NotificationsConfig(args.benchmarkConfig.getPath),
-          s"ProvX bench: ${algorithm}/${dataset}/${lineageStatus}/${runNr}",
+          s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${lineageStatus}/${experiment.runNr}",
           f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}"
         )
       }
@@ -122,7 +133,10 @@ object Runner {
     0
   }
 
-  def generateConfigurations(benchmarkConfig: BenchmarkConfig): Array[(String, String, Boolean, Int, UUID)] = {
+  def generateConfigurations(
+      outputDir: os.Path,
+      benchmarkConfig: BenchmarkConfig
+  ): Array[ExperimentDescription] = {
     val lineageEnabled = List(true, false)
     val runs = Range.inclusive(1, benchmarkConfig.repetitions).toList
 
@@ -133,13 +147,25 @@ object Runner {
           s"${benchmarkConfig.datasetPath}/${dataset}.properties"
         )
           .algorithms()
-          .get.toSet
+          .get
+          .toSet
           .intersect(benchmarkConfig.algorithms.toSet)
           .map(algorithm => (dataset, algorithm))
       })
       .flatMap(v => lineageEnabled.map(l => (v._1, v._2, l)))
       .flatMap(v => runs.map(r => (v._1, v._2, v._3, r)))
       .map(v => (v._1, v._2, v._3, v._4, UUID.randomUUID()))
+      .map(v =>
+        ExperimentDescription(
+          experimentID = v._5.toString,
+          dataset = v._1,
+          algorithm = AlgorithmSerializer.deserialize(v._2.toUpperCase),
+          lineageActive = v._3,
+          runNr = v._4,
+          outputDir = outputDir,
+          benchmarkConfig = benchmarkConfig
+        )
+      )
   }
 
   def main(args: Array[String]): Unit = {

@@ -16,6 +16,9 @@ object ProvenanceGraph {
   val noNode: NodePredicate = _ => false
   val noEdge: EdgePredicate = _ => false
 
+  val allNodes: NodePredicate = _ => true
+  val allEdges: EdgePredicate = _ => true
+
   case class Node(g: GraphLineage[_, _])
 
   case class Relation(input: Node, output: Node, event: EventType)
@@ -99,15 +102,27 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
     new ProvenanceGraph(result.asInstanceOf[Graph[Node, Relation]])
   }
 
+  def toJson(): String = {
+    val nodes  = graph.edges.flatMap((e: Graph[Node, Relation]#EdgeT) => Seq(e.outer.input.g, e.outer.output.g))
+      .map((g: GraphLineage[_, _]) => ujson.Obj(
+        "id" -> g.id,
+        "location" -> g.storageLocation.getOrElse("").toString,
+      ))
+    val edges = graph.edges.map((e: Graph[Node, Relation]#EdgeT) => ujson.Obj(
+      "source" -> e.outer.input.g.id,
+      "target" -> e.outer.output.g.id,
+      "relationship" -> e.outer.event.toString
+    ))
+    ujson.Obj(
+      "nodes" -> ujson.Arr(nodes),
+      "edges" -> ujson.Arr(edges)
+    ).toString()
+  }
+
   def byId(id: Long): Option[GraphLineage[_, _]] = {
     graph.nodes.find((node: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
       node.outer.g.id == id
     }).map(_.outer.g)
-  }
-
-  def export(): String = {
-    // TODO: implement this myself
-    throw new NotImplementedError("no export")
   }
 
   def load(): String = {

@@ -2,6 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package benchmark.utils
 
 import lu.magalhaes.gilles.provxlib.benchmark.configuration.BenchmarkConfig
+import lu.magalhaes.gilles.provxlib.benchmark.{ExperimentDescription, ExperimentDescriptionSerializer}
 import mainargs.TokensReader
 
 object CustomCLIArguments {
@@ -13,6 +14,17 @@ object CustomCLIArguments {
     override def allowEmpty: Boolean = false
 
     def read(strs: Seq[String]): Right[Nothing, BenchmarkConfig] = Right(new BenchmarkConfig(strs.head))
+  }
+
+  implicit object ExperimentDescriptionArg extends TokensReader.Simple[ExperimentDescription] {
+    def shortName = "config"
+
+    override def alwaysRepeatable: Boolean = false
+
+    override def allowEmpty: Boolean = false
+
+    def read(strs: Seq[String]): Right[Nothing, ExperimentDescription] =
+      Right(ExperimentDescriptionSerializer.deserialize(strs.head))
   }
 
   implicit object PathRead extends TokensReader.Simple[os.Path] {

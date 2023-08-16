@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.algorithms
 
-import lineage.{GraphCheckpointer, GraphLineage}
+import lineage.GraphLineage
 import lineage.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
@@ -32,10 +32,7 @@ object LineagePageRank extends Logging {
       workGraph.outDegrees.mapValues(_ => 0.0)
     ).cache()
 
-    val checkpointer = new GraphCheckpointer[Double, Double]()
     val metrics = ObservationSet()
-
-    checkpointer.save(workGraph)
 
     var iteration = 0
     while (iteration < numIter) {
@@ -58,8 +55,6 @@ object LineagePageRank extends Logging {
       workGraph.edges.count()
 
       metrics.add(Gauge("numVertices", vertices))
-
-      checkpointer.save(workGraph)
 
       // Unpersist the previous cached graph
       prevGraph.unpersist()
