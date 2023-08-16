@@ -3,11 +3,11 @@ package benchmark
 
 import benchmark.utils.{GraphUtils, TimeUtils}
 import benchmark.ExperimentParameters.{BFS, PageRank, SSSP, WCC}
-import lineage.{LineageContext, ProvenanceGraph}
-import lineage.GraphLineage.graphToGraphLineage
-import lineage.metrics.JSONSerializer
-import lineage.query.{CaptureFilter, ProvenancePredicate}
-import lineage.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler}
+import provenance.{ProvenanceContext, ProvenanceGraph}
+import provenance.GraphLineage.graphToGraphLineage
+import provenance.metrics.JSONSerializer
+import provenance.query.{CaptureFilter, ProvenancePredicate}
+import provenance.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler}
 
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
@@ -49,7 +49,7 @@ object Benchmark {
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
-    LineageContext.setStorageHandler(new HDFSStorageHandler(lineageDirectory))
+    ProvenanceContext.setStorageHandler(new HDFSStorageHandler(lineageDirectory))
 
     val filteredGL = gl.capture(
       CaptureFilter(provenanceFilter =
@@ -95,7 +95,7 @@ object Benchmark {
       "metrics" -> run
     )
 
-    val sizes = LineageContext.graph.graph.nodes.map(
+    val sizes = ProvenanceContext.graph.graph.nodes.map(
       (n: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
         val size: Long = if (n.outer.g.storageLocation.isDefined) {
           n.outer.g.storageLocation.get match {
@@ -124,7 +124,7 @@ object Benchmark {
           "applicationId" -> spark.sparkContext.applicationId,
           "algorithm" -> AlgorithmSerializer.serialize(description.algorithm),
           "graph" -> description.dataset,
-          "lineage" -> description.lineageActive,
+          "provenance" -> description.lineageActive,
           "runNr" -> description.runNr
         )
       ),

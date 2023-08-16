@@ -2,7 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package utils
 
 import benchmark.utils.GraphUtils
-import lineage.GraphLineage
+import provenance.GraphLineage
 
 import org.apache.spark.SparkContext
 
