@@ -12,7 +12,6 @@ import provenance.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler}
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
-import scalax.collection.immutable.Graph
 
 object Benchmark {
   import utils.CustomCLIArguments._
@@ -49,7 +48,9 @@ object Benchmark {
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
-    ProvenanceContext.setStorageHandler(new HDFSStorageHandler(lineageDirectory))
+    ProvenanceContext.setStorageHandler(
+      new HDFSStorageHandler(lineageDirectory)
+    )
 
     val filteredGL = gl.capture(
       CaptureFilter(provenanceFilter =
@@ -96,7 +97,7 @@ object Benchmark {
     )
 
     val sizes = ProvenanceContext.graph.graph.nodes.map(
-      (n: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
+      (n: ProvenanceGraph.Type#NodeT) => {
         val size: Long = if (n.outer.g.storageLocation.isDefined) {
           n.outer.g.storageLocation.get match {
             case EmptyLocation()    => 0

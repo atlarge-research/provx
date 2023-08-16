@@ -1,7 +1,6 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.ProvenanceGraph.{Node, Relation}
 import provenance.events.{Algorithm, EventType, Operation, PregelAlgorithm}
 
 import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
@@ -29,6 +28,8 @@ object ProvenanceGraph {
   val allNodes: NodePredicate = _ => true
   val allEdges: EdgePredicate = _ => true
 
+  type Type = Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]
+
   case class Node(g: GraphLineage[_, _])
 
   case class Relation(input: Node, output: Node, event: EventType)
@@ -40,7 +41,7 @@ object ProvenanceGraph {
   }
 }
 
-class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
+class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
   import ProvenanceGraph._
 
   def add(
@@ -57,7 +58,7 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
       id = None
     )
     def edgeTransformer(
-        innerEdge: Graph[Node, Relation]#EdgeT
+        innerEdge: ProvenanceGraph.Type#EdgeT
     ): Option[(DotGraph, DotEdgeStmt)] = {
       val edge = innerEdge.outer.event.toString
       val edgeColor = innerEdge.outer.event match {
@@ -82,7 +83,7 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
     }
 
     def nodeTransformer(
-        innerNode: Graph[Node, Relation]#NodeT
+        innerNode: ProvenanceGraph.Type#NodeT
     ): Option[(DotGraph, DotNodeStmt)] = {
       val g = innerNode.outer.g
       val nodeId = g.id
@@ -126,7 +127,7 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
 
   def toJson(): String = {
     val nodes = graph.edges
-      .flatMap((e: Graph[Node, Relation]#EdgeT) =>
+      .flatMap((e: ProvenanceGraph.Type#EdgeT) =>
         Seq(e.outer.input.g, e.outer.output.g)
       )
       .map((g: GraphLineage[_, _]) =>
@@ -135,7 +136,7 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
           "location" -> g.storageLocation.getOrElse("").toString
         )
       )
-    val edges = graph.edges.map((e: Graph[Node, Relation]#EdgeT) =>
+    val edges = graph.edges.map((e: ProvenanceGraph.Type#EdgeT) =>
       ujson.Obj(
         "source" -> e.outer.input.g.id,
         "target" -> e.outer.output.g.id,
@@ -152,11 +153,9 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
 
   def byId(id: Long): Option[GraphLineage[_, _]] = {
     graph.nodes
-      .find(
-        (node: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
-          node.outer.g.id == id
-        }
-      )
+      .find((node: ProvenanceGraph.Type#NodeT) => {
+        node.outer.g.id == id
+      })
       .map(_.outer.g)
   }
 
