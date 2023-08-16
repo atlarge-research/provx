@@ -18,8 +18,7 @@ class HDFSStorageHandler(
     format: StorageFormat = TextFile()
 ) extends StorageHandler {
 
-  // nameless writes
-  override def save[V: ClassTag, D: ClassTag](
+  override def write[V: ClassTag, D: ClassTag](
       g: GraphLineage[V, D]
   ): StorageLocation = {
     val name = UUID.randomUUID().toString

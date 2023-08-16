@@ -5,7 +5,7 @@ import lineage.GraphLineage
 import scala.reflect.ClassTag
 
 class NullStorageHandler extends StorageHandler {
-  override def save[V: ClassTag, D: ClassTag](
+  override def write[V: ClassTag, D: ClassTag](
       g: GraphLineage[V, D]
   ): StorageLocation = {
     println(s"NullStorageDriver: saving ${g.id}")
