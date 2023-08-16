@@ -46,7 +46,7 @@ class SafeConfiguration(config: PropertiesConfiguration) {
 
 object SafeConfiguration {
 
-  def fromLocalPath(path: String) : Option[SafeConfiguration] = {
+  def fromLocalPath(path: String): Option[SafeConfiguration] = {
     try {
       val propConfig = new PropertiesConfiguration(path)
       Some(new SafeConfiguration(propConfig))
@@ -57,7 +57,10 @@ object SafeConfiguration {
     }
   }
 
-  def fromHadoop(path: String, hadoopConfig: HadoopConfiguration): Option[SafeConfiguration] = {
+  def fromHadoop(
+      path: String,
+      hadoopConfig: HadoopConfiguration
+  ): Option[SafeConfiguration] = {
     val hadoopPath = new Path(path)
     val fs = hadoopPath.getFileSystem(hadoopConfig)
     val in = fs.open(hadoopPath)

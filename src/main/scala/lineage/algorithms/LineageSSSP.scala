@@ -9,9 +9,13 @@ import scala.reflect.ClassTag
 
 object LineageSSSP {
 
-  def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED], source: VertexId): GraphLineage[Double, Double] = {
+  def run[VD: ClassTag, ED: ClassTag](
+      gl: GraphLineage[VD, ED],
+      source: VertexId
+  ): GraphLineage[Double, Double] = {
 
-    val ssspGraph = gl.mapVertices((vid, _) => {
+    val ssspGraph = gl
+      .mapVertices((vid, _) => {
         if (vid == source) {
           0.0
         } else {
@@ -21,11 +25,17 @@ object LineageSSSP {
       .mapEdges(x => x.attr.toString.toDouble)
       .cache()
 
-    def vertexProgram(id: VertexId, oldValue: Double, message: Double): Double = {
+    def vertexProgram(
+        id: VertexId,
+        oldValue: Double,
+        message: Double
+    ): Double = {
       math.min(oldValue, message)
     }
 
-    def sendMessage(edgeData: EdgeTriplet[Double, Double]): Iterator[(VertexId, Double)] = {
+    def sendMessage(
+        edgeData: EdgeTriplet[Double, Double]
+    ): Iterator[(VertexId, Double)] = {
       if (edgeData.srcAttr + edgeData.attr < edgeData.dstAttr) {
         Iterator((edgeData.dstId, edgeData.srcAttr + edgeData.attr))
       } else {
@@ -40,9 +50,13 @@ object LineageSSSP {
     val initialMessage = Double.PositiveInfinity
 
     LineagePregel(
-      ssspGraph, initialMessage, activeDirection = EdgeDirection.Out
+      ssspGraph,
+      initialMessage,
+      activeDirection = EdgeDirection.Out
     )(
-      vertexProgram, sendMessage, messageCombiner
+      vertexProgram,
+      sendMessage,
+      messageCombiner
     )
   }
 }

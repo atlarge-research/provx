@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.hooks
 
-import lineage.{EventType, GraphLineage, LineageContext, ProvenanceGraph}
+import lineage.{EventType, GraphLineage}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
@@ -24,11 +24,17 @@ class HooksRegistry {
 
   def all: Iterable[Hook] = hooks
 
-  def handlePre[VD: ClassTag, ED: ClassTag](event: EventType, g: GraphLineage[VD, ED]): Unit = {
+  def handlePre[VD: ClassTag, ED: ClassTag](
+      event: EventType,
+      g: GraphLineage[VD, ED]
+  ): Unit = {
     all.filter(_.shouldInvoke(event)).foreach(_.pre(g))
   }
 
-  def handlePost[VD: ClassTag, ED: ClassTag](event: EventType, g: GraphLineage[VD, ED]): Unit = {
+  def handlePost[VD: ClassTag, ED: ClassTag](
+      event: EventType,
+      g: GraphLineage[VD, ED]
+  ): Unit = {
     all.filter(_.shouldInvoke(event)).foreach(_.post(g))
   }
 

@@ -9,7 +9,9 @@ import scala.reflect.ClassTag
 case class CounterHook() extends Hook {
   private var counter = Counter.zero("iteration")
 
-  override def post[VD: ClassTag, ED: ClassTag](inputGraph: GraphLineage[VD, ED]): Unit = {
+  override def post[VD: ClassTag, ED: ClassTag](
+      inputGraph: GraphLineage[VD, ED]
+  ): Unit = {
     inputGraph.metrics.add(counter)
     counter = counter.increment()
   }

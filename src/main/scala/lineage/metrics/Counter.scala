@@ -11,7 +11,7 @@ case class Counter private (name: String, value: Long = 0) extends Observation {
 }
 
 object Counter {
-  def zero(name: String) : Counter = {
+  def zero(name: String): Counter = {
     new Counter(name, 0)
   }
 }

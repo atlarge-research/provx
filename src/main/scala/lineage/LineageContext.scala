@@ -7,8 +7,6 @@ import lineage.storage.{NullStorageHandler, StorageHandler}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 
-
-
 object LineageContext {
 
   private val nextGLId = new AtomicInteger(0)

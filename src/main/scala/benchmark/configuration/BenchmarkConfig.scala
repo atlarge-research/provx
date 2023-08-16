@@ -26,7 +26,6 @@ class BenchmarkConfig(val path: String) {
     // Location of benchmark jar
     val benchmarkJar = Value("runner.jar")
 
-
     // Outputs (HDFS)
     // Where to store the lineage information
     val lineagePath = Value("benchmark.lineagePath")
@@ -51,7 +50,8 @@ class BenchmarkConfig(val path: String) {
   def createCurrentExperimentDir(): Option[os.Path] = {
     val now = Calendar.getInstance().getTime
     val datetimeFormat = new SimpleDateFormat("yyyyMMdd-HHmmss")
-    val currentExperimentPath = os.Path(experimentsPath) / datetimeFormat.format(now)
+    val currentExperimentPath =
+      os.Path(experimentsPath) / datetimeFormat.format(now)
 
     if (os.exists(currentExperimentPath)) {
       None
@@ -62,9 +62,8 @@ class BenchmarkConfig(val path: String) {
     }
   }
 
-  /**
-   * Print configuration information for debugging
-   */
+  /** Print configuration information for debugging
+    */
   def debug(): Unit = {
     println(s"Dataset path: ${datasetPath}")
     println(s"Lineage path: ${lineagePath}")
@@ -77,21 +76,30 @@ class BenchmarkConfig(val path: String) {
     println(s"Algorithms  : ${algorithms.toSet.mkString(", ")}")
   }
 
-  def datasetPath: String = config.getString(RequiredKeys.datasetPath.toString).get
+  def datasetPath: String =
+    config.getString(RequiredKeys.datasetPath.toString).get
 
-  def algorithms: Array[String] = config.getStringArray(RequiredKeys.algorithms.toString).map(_.map(_.toLowerCase)).get
+  def algorithms: Array[String] = config
+    .getStringArray(RequiredKeys.algorithms.toString)
+    .map(_.map(_.toLowerCase))
+    .get
 
-  def experimentsPath: String = config.getString(RequiredKeys.experimentsPath.toString).get
+  def experimentsPath: String =
+    config.getString(RequiredKeys.experimentsPath.toString).get
 
-  def graphs: Array[String] = config.getStringArray(RequiredKeys.graphs.toString).get
+  def graphs: Array[String] =
+    config.getStringArray(RequiredKeys.graphs.toString).get
 
   def repetitions: Int = config.getInt(RequiredKeys.repetitions.toString).get
 
-  def lineagePath: String = config.getString(RequiredKeys.lineagePath.toString).get
+  def lineagePath: String =
+    config.getString(RequiredKeys.lineagePath.toString).get
 
-  def outputPath: String = config.getString(RequiredKeys.outputPath.toString).get
+  def outputPath: String =
+    config.getString(RequiredKeys.outputPath.toString).get
 
   def sparkLogs: String = config.getString(RequiredKeys.sparkLogs.toString).get
 
-  def benchmarkJar: String = config.getString(RequiredKeys.benchmarkJar.toString).get
+  def benchmarkJar: String =
+    config.getString(RequiredKeys.benchmarkJar.toString).get
 }

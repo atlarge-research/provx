@@ -18,8 +18,10 @@ object Benchmark {
   import utils.CustomCLIArguments._
 
   @main
-  case class Config(@arg(name = "config", doc = "Graphalytics benchmark configuration")
-                    description: ExperimentDescription)
+  case class Config(
+      @arg(name = "config", doc = "Graphalytics benchmark configuration")
+      description: ExperimentDescription
+  )
 
   def run(args: Config): (Unit, Long) = TimeUtils.timed {
     val description = args.description
@@ -29,11 +31,15 @@ object Benchmark {
 
     val metricsLocation = description.outputDir / "metrics.json"
 
-    val spark = SparkSession.builder()
-      .appName(s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageActive}/${description.runNr} benchmark")
+    val spark = SparkSession
+      .builder()
+      .appName(
+        s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageActive}/${description.runNr} benchmark"
+      )
       .getOrCreate()
 
-    val pathPrefix = s"${description.benchmarkConfig.datasetPath}/${description.dataset}"
+    val pathPrefix =
+      s"${description.benchmarkConfig.datasetPath}/${description.dataset}"
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage()
 
@@ -45,17 +51,22 @@ object Benchmark {
 
     LineageContext.setStorageHandler(new HDFSStorageHandler(lineageDirectory))
 
-    val filteredGL = gl.capture(CaptureFilter(provenanceFilter = ProvenancePredicate(
-      nodePredicate = ProvenanceGraph.allNodes,
-      edgePredicate = ProvenanceGraph.allEdges,
-    )))
+    val filteredGL = gl.capture(
+      CaptureFilter(provenanceFilter =
+        ProvenancePredicate(
+          nodePredicate = ProvenanceGraph.allNodes,
+          edgePredicate = ProvenanceGraph.allEdges
+        )
+      )
+    )
 
     val (sol, elapsedTime) = TimeUtils.timed {
       args.description.algorithm match {
         case BFS() => filteredGL.bfs(config.bfsSourceVertex())
-        case PageRank() => filteredGL.pageRank(numIter = config.pageRankIterations())
+        case PageRank() =>
+          filteredGL.pageRank(numIter = config.pageRankIterations())
         case SSSP() => filteredGL.sssp(config.ssspSourceVertex())
-        case WCC() => filteredGL.wcc()
+        case WCC()  => filteredGL.wcc()
         // case "lcc" => gl.lcc()
         // case "cdlp" => Some(gl.cdlp())
         case _ => throw new NotImplementedError("unknown graph algorithm")
@@ -75,7 +86,8 @@ object Benchmark {
       run("lineageDirectory") = lineageDirectory
     }
 
-    val resultsPath = s"${description.benchmarkConfig.outputPath}/experiment-${description.experimentID}/vertices.txt"
+    val resultsPath =
+      s"${description.benchmarkConfig.outputPath}/experiment-${description.experimentID}/vertices.txt"
     filteredGL.vertices.saveAsTextFile(resultsPath)
     val resultsSize = fileSize(spark, resultsPath)
 
@@ -83,20 +95,23 @@ object Benchmark {
       "metrics" -> run
     )
 
-    val sizes = LineageContext.graph.graph.nodes.map((n: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
-      val size: Long = if (n.outer.g.storageLocation.isDefined) {
-        n.outer.g.storageLocation.get match {
-          case EmptyLocation() => 0
-          case HDFSLocation(path) => fileSize(spark, path)
-          case _ => throw new NotImplementedError("unknown location descriptor")
-        }
-      } else 0
-      ujson.Obj(
-        "graphID" -> n.outer.g.id,
-        "size" -> size.toInt,
-        "metrics" -> JSONSerializer.serialize(n.outer.g.metrics)
-      )
-    })
+    val sizes = LineageContext.graph.graph.nodes.map(
+      (n: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
+        val size: Long = if (n.outer.g.storageLocation.isDefined) {
+          n.outer.g.storageLocation.get match {
+            case EmptyLocation()    => 0
+            case HDFSLocation(path) => fileSize(spark, path)
+            case _ =>
+              throw new NotImplementedError("unknown location descriptor")
+          }
+        } else 0
+        ujson.Obj(
+          "graphID" -> n.outer.g.id,
+          "size" -> size.toInt,
+          "metrics" -> JSONSerializer.serialize(n.outer.g.metrics)
+        )
+      }
+    )
 
     os.write(metricsLocation, results)
 
@@ -110,7 +125,7 @@ object Benchmark {
           "algorithm" -> AlgorithmSerializer.serialize(description.algorithm),
           "graph" -> description.dataset,
           "lineage" -> description.lineageActive,
-          "runNr" -> description.runNr,
+          "runNr" -> description.runNr
         )
       ),
       "output" -> ujson.Obj(
@@ -134,7 +149,9 @@ object Benchmark {
   }
 
   def main(args: Array[String]): Unit = {
-    val (_, elapsedTime) = run(ParserForClass[Config].constructOrExit(args.toIndexedSeq))
+    val (_, elapsedTime) = run(
+      ParserForClass[Config].constructOrExit(args.toIndexedSeq)
+    )
     println(s"Benchmark run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
   }
 }

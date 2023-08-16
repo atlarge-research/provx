@@ -6,7 +6,16 @@ import lineage.ProvenanceGraph.{Node, Relation}
 import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
 import scalax.collection.generic.{AbstractDiEdge, Edge}
 import scalax.collection.immutable.Graph
-import scalax.collection.io.dot.{DotAttr, DotEdgeStmt, DotGraph, DotNodeStmt, DotRootGraph, Graph2DotExport, Id, NodeId}
+import scalax.collection.io.dot.{
+  DotAttr,
+  DotEdgeStmt,
+  DotGraph,
+  DotNodeStmt,
+  DotRootGraph,
+  Graph2DotExport,
+  Id,
+  NodeId
+}
 import scalax.collection.AnyGraph
 
 object ProvenanceGraph {
@@ -22,9 +31,10 @@ object ProvenanceGraph {
   case class Node(g: GraphLineage[_, _])
 
   case class Relation(input: Node, output: Node, event: EventType)
-    extends AbstractDiEdge(input, output)
+      extends AbstractDiEdge(input, output)
 
-  implicit class MyLDiEdgeInfixLabelConstructor(val e: DiEdge[Node]) extends AnyVal {
+  implicit class MyLDiEdgeInfixLabelConstructor(val e: DiEdge[Node])
+      extends AnyVal {
     def :+(label: EventType): Relation = Relation(e.source, e.target, label)
   }
 }
@@ -32,22 +42,28 @@ object ProvenanceGraph {
 class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
   import ProvenanceGraph._
 
-  def add(source: GraphLineage[_, _], target: GraphLineage[_, _], attr: EventType): Unit = {
+  def add(
+      source: GraphLineage[_, _],
+      target: GraphLineage[_, _],
+      attr: EventType
+  ): Unit = {
     graph = graph + (Node(source) ~> Node(target) :+ attr)
   }
 
   def toDot(): String = {
     val root = DotRootGraph(
       directed = true,
-      id = None,
+      id = None
     )
-    def edgeTransformer(innerEdge: Graph[Node, Relation]#EdgeT): Option[(DotGraph, DotEdgeStmt)] = {
+    def edgeTransformer(
+        innerEdge: Graph[Node, Relation]#EdgeT
+    ): Option[(DotGraph, DotEdgeStmt)] = {
       val edge = innerEdge.outer.event.toString
       val edgeColor = innerEdge.outer.event match {
-        case Algorithm(_) => "gold"
-        case Operation(_) => "indianred2"
+        case Algorithm(_)      => "gold"
+        case Operation(_)      => "indianred2"
         case PregelAlgorithm() => "green"
-        case _ => "black"
+        case _                 => "black"
       }
       Some(
         root,
@@ -58,24 +74,29 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
             DotAttr(Id("label"), Id(edge)),
             DotAttr(Id("color"), Id(edgeColor)),
             DotAttr(Id("fontcolor"), Id(edgeColor)),
-            DotAttr(Id("style"), Id("filled")),
+            DotAttr(Id("style"), Id("filled"))
           )
         )
       )
     }
 
-    def nodeTransformer(innerNode: Graph[Node, Relation]#NodeT): Option[(DotGraph, DotNodeStmt)] = {
+    def nodeTransformer(
+        innerNode: Graph[Node, Relation]#NodeT
+    ): Option[(DotGraph, DotNodeStmt)] = {
       val g = innerNode.outer.g
       val nodeId = g.id
       Some(
-        root, DotNodeStmt(
+        root,
+        DotNodeStmt(
           NodeId(s"G${nodeId}"),
           attrList = List(
             DotAttr(Id("fillcolor"), Id("cadetblue1")),
             DotAttr(Id("style"), Id("filled")),
-            DotAttr(Id("label"), Id(s"G${nodeId}\\n${g.storageLocation.getOrElse("")}")),
+            DotAttr(
+              Id("label"),
+              Id(s"G${nodeId}\\n${g.storageLocation.getOrElse("")}")
+            )
           )
-
         )
       )
     }
@@ -103,30 +124,43 @@ class ProvenanceGraph(var graph: Graph[Node, Relation] = Graph.empty) {
   }
 
   def toJson(): String = {
-    val nodes  = graph.edges.flatMap((e: Graph[Node, Relation]#EdgeT) => Seq(e.outer.input.g, e.outer.output.g))
-      .map((g: GraphLineage[_, _]) => ujson.Obj(
-        "id" -> g.id,
-        "location" -> g.storageLocation.getOrElse("").toString,
-      ))
-    val edges = graph.edges.map((e: Graph[Node, Relation]#EdgeT) => ujson.Obj(
-      "source" -> e.outer.input.g.id,
-      "target" -> e.outer.output.g.id,
-      "relationship" -> e.outer.event.toString
-    ))
-    ujson.Obj(
-      "nodes" -> ujson.Arr(nodes),
-      "edges" -> ujson.Arr(edges)
-    ).toString()
+    val nodes = graph.edges
+      .flatMap((e: Graph[Node, Relation]#EdgeT) =>
+        Seq(e.outer.input.g, e.outer.output.g)
+      )
+      .map((g: GraphLineage[_, _]) =>
+        ujson.Obj(
+          "id" -> g.id,
+          "location" -> g.storageLocation.getOrElse("").toString
+        )
+      )
+    val edges = graph.edges.map((e: Graph[Node, Relation]#EdgeT) =>
+      ujson.Obj(
+        "source" -> e.outer.input.g.id,
+        "target" -> e.outer.output.g.id,
+        "relationship" -> e.outer.event.toString
+      )
+    )
+    ujson
+      .Obj(
+        "nodes" -> ujson.Arr(nodes),
+        "edges" -> ujson.Arr(edges)
+      )
+      .toString()
   }
 
   def byId(id: Long): Option[GraphLineage[_, _]] = {
-    graph.nodes.find((node: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
-      node.outer.g.id == id
-    }).map(_.outer.g)
+    graph.nodes
+      .find(
+        (node: Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]#NodeT) => {
+          node.outer.g.id == id
+        }
+      )
+      .map(_.outer.g)
   }
 
   def load(): String = {
     // TODO: implement this myself
-    throw new NotImplementedError("no export")
+    throw new NotImplementedError("no import")
   }
 }

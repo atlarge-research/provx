@@ -3,7 +3,8 @@ package lineage.metrics
 
 import scala.collection.mutable.ArrayBuffer
 
-case class ObservationSet(value: ArrayBuffer[Observation] = ArrayBuffer.empty) extends Observation {
+case class ObservationSet(value: ArrayBuffer[Observation] = ArrayBuffer.empty)
+    extends Observation {
 
   def add(element: Observation): Unit = {
     value += element

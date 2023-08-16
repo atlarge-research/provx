@@ -11,25 +11,33 @@ object GraphUtils {
   def edgesPath(prefix: String) = s"${prefix}.e"
   def configPath(prefix: String) = s"${prefix}.properties"
 
-  def load(sc: SparkContext, prefix: String): (Graph[Unit, Double], GraphalyticsConfiguration) = {
-    val config = new GraphalyticsConfiguration(sc.hadoopConfiguration, configPath(prefix))
+  def load(
+      sc: SparkContext,
+      prefix: String
+  ): (Graph[Unit, Double], GraphalyticsConfiguration) = {
+    val config =
+      new GraphalyticsConfiguration(sc.hadoopConfiguration, configPath(prefix))
 
     val edgePath = edgesPath(prefix)
     val vertexPath = verticesPath(prefix)
 
-    val edges = sc.textFile(edgePath).map(line => {
-      val tokens = line.trim.split("""\s""")
-      if (tokens.length == 3) {
-        Edge(tokens(0).toLong, tokens(1).toLong, tokens(2).toDouble)
-      } else {
-        Edge(tokens(0).toLong, tokens(1).toLong, 0.0)
-      }
-    })
+    val edges = sc
+      .textFile(edgePath)
+      .map(line => {
+        val tokens = line.trim.split("""\s""")
+        if (tokens.length == 3) {
+          Edge(tokens(0).toLong, tokens(1).toLong, tokens(2).toDouble)
+        } else {
+          Edge(tokens(0).toLong, tokens(1).toLong, 0.0)
+        }
+      })
 
-    val vertices = sc.textFile(vertexPath).map(line => {
-      val tokens = line.trim.split("""\s""")
-      (tokens(0).toLong, ())
-    })
+    val vertices = sc
+      .textFile(vertexPath)
+      .map(line => {
+        val tokens = line.trim.split("""\s""")
+        (tokens(0).toLong, ())
+      })
 
     (Graph(vertices, edges), config)
   }

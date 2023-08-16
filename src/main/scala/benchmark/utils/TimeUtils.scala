@@ -16,7 +16,8 @@ object TimeUtils {
     val days = duration.toDays
     val hours = duration.toHours - days * 24
     val minutes = duration.toMinutes - hours * 60 - days * 1440
-    val seconds = duration.toSeconds - minutes * 60 - hours * 3600 - days * 86400
+    val seconds =
+      duration.toSeconds - minutes * 60 - hours * 3600 - days * 86400
 
     val sb = new StringBuilder()
 

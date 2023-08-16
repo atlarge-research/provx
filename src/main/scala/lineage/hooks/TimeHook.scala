@@ -1,8 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package lineage.hooks
 
+import lineage.{EventType, GraphLineage}
 import lineage.metrics.TimeUnit
-import lineage.{EventType, GraphLineage, ProvenanceGraph}
 
 import scala.reflect.ClassTag
 
@@ -13,12 +13,16 @@ case class TimeHook(gaugeName: String) extends Hook {
   // TODO: make this a parameter when this should be executed
   override def shouldInvoke(event: EventType): Boolean = true
 
-  override def pre[VD: ClassTag, ED: ClassTag](inputGraph: GraphLineage[VD, ED]): Unit = {
+  override def pre[VD: ClassTag, ED: ClassTag](
+      inputGraph: GraphLineage[VD, ED]
+  ): Unit = {
     assert(startTime.isEmpty, "start time already set")
     startTime = Some(System.nanoTime())
   }
 
-  override def post[VD: ClassTag, ED: ClassTag](outputGraph: GraphLineage[VD, ED]): Unit = {
+  override def post[VD: ClassTag, ED: ClassTag](
+      outputGraph: GraphLineage[VD, ED]
+  ): Unit = {
     assert(startTime.isDefined, "pre method not called on TimeHook")
 
     val iterationTime = System.nanoTime() - startTime.get

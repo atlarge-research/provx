@@ -5,7 +5,11 @@ import benchmark.configuration.NotificationsConfig
 
 object PushoverNotifier {
 
-  def notify(config: NotificationsConfig, title: String, message: String): Unit = {
+  def notify(
+      config: NotificationsConfig,
+      title: String,
+      message: String
+  ): Unit = {
     requests.post(
       "https://api.pushover.net/1/messages.json",
       data = Map(
@@ -13,7 +17,8 @@ object PushoverNotifier {
         "user" -> config.user,
         "title" -> title,
         "message" -> message
-      ))
+      )
+    )
   }
 
 }

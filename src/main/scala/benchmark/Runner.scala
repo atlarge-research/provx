@@ -1,11 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.configuration.{
-  BenchmarkConfig,
-  GraphalyticsConfiguration,
-  NotificationsConfig
-}
+import benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig}
 import benchmark.utils._
 
 import mainargs.{arg, main, ParserForClass}
@@ -104,8 +100,6 @@ object Runner {
           .setSparkHome(sparkHome.get)
           .setConf("spark.eventLog.enabled", "true")
           .setConf("spark.eventLog.dir", args.benchmarkConfig.sparkLogs)
-//          .setConf("spark.driver.memory", "8G")
-//          .setConf("spark.executor.memory", "8G")
           .setVerbose(true)
           .launch()
 

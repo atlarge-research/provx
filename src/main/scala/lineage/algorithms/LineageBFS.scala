@@ -9,7 +9,10 @@ import scala.reflect.ClassTag
 
 object LineageBFS {
 
-  def run[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED], source: VertexId): GraphLineage[Long, ED] = {
+  def run[VD: ClassTag, ED: ClassTag](
+      gl: GraphLineage[VD, ED],
+      source: VertexId
+  ): GraphLineage[Long, ED] = {
     val bfsGraph = gl
       .mapVertices((vid, _) => {
         if (vid == source) {
@@ -17,13 +20,16 @@ object LineageBFS {
         } else {
           Long.MaxValue
         }
-      }).cache()
+      })
+      .cache()
 
     def vertexProgram(id: VertexId, oldValue: Long, message: Long): Long = {
       math.min(oldValue, message)
     }
 
-    def sendMessage(edge: EdgeTriplet[Long, ED]): Iterator[(VertexId, VertexId)] = {
+    def sendMessage(
+        edge: EdgeTriplet[Long, ED]
+    ): Iterator[(VertexId, VertexId)] = {
       if (edge.srcAttr < Long.MaxValue && edge.srcAttr + 1L < edge.dstAttr) {
         Iterator((edge.dstId, edge.srcAttr + 1L))
       } else {
@@ -36,9 +42,13 @@ object LineageBFS {
     val initialMessage = Long.MaxValue
 
     LineagePregel(
-      bfsGraph, initialMessage, activeDirection = EdgeDirection.Out
+      bfsGraph,
+      initialMessage,
+      activeDirection = EdgeDirection.Out
     )(
-      vertexProgram, sendMessage, messageCombiner
+      vertexProgram,
+      sendMessage,
+      messageCombiner
     )
   }
 }

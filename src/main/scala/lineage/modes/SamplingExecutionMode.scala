@@ -8,8 +8,11 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-case class SamplingExecutionMode(fraction: Double, withReplacement: Boolean,
-                                 edgesOnly: Boolean = false) extends ExecutionMode {
+case class SamplingExecutionMode(
+    fraction: Double,
+    withReplacement: Boolean,
+    edgesOnly: Boolean = false
+) extends ExecutionMode {
 
   private var frac = fraction
 
@@ -21,7 +24,9 @@ case class SamplingExecutionMode(fraction: Double, withReplacement: Boolean,
 
   // TODO(gm): generalise this to the entire graph
   // TODO: fix seed
-  def filter[VD: ClassTag, ED: ClassTag](gl: GraphLineage[VD, ED]): RDD[(VertexId, VD)] = {
-      gl.vertices.sample(withReplacement = false, frac)
+  def filter[VD: ClassTag, ED: ClassTag](
+      gl: GraphLineage[VD, ED]
+  ): RDD[(VertexId, VD)] = {
+    gl.vertices.sample(withReplacement = false, frac)
   }
 }
