@@ -1,16 +1,46 @@
-export BENCHMARK_JAR := "../target/scala-2.12/provxlib-assembly-0.1.0-SNAPSHOT.jar"
-export EXPERIMENTS_DIR := "/Users/gm/vu/thesis/impl/provxlib/run/experiments"
-export DOWNLOAD_DIR := "/Users/gm/vu/thesis/data/raw"
-export LOCAL_DATASET_DIR := "/Users/gm/vu/thesis/data/graphs"
-export RUNNER_CONFIG := "/Users/gm/vu/thesis/impl/provxlib/run/config.properties"
+exec_env := "das5"
+
+export BENCHMARK_JAR := "../target/scala-2.13/provxlib-assembly-0.1.0-SNAPSHOT.jar"
+export EXPERIMENTS_DIR := if exec_env == "local" {
+  "/Users/gm/vu/thesis/impl/provxlib/run/experiments"
+} else if exec_env == "das5" {
+  "/var/scratch/gmo520/thesis/experiments"
+} else {
+  error("unknown environment")
+}
+
+export DOWNLOAD_DIR := if exec_env == "local" {
+  "/Users/gm/vu/thesis/data/raw"
+} else if exec_env == "das5" {
+  "/var/scratch/gmo520/thesis/data/raw"
+} else {
+  error("unknown environment")
+}
+
+export LOCAL_DATASET_DIR := if exec_env == "local" {
+  "/Users/gm/vu/thesis/data/graphs"
+} else if exec_env == "das5" {
+  "/var/scratch/gmo520/thesis/data/graphs"
+} else {
+  error("unknown environment")
+}
+
+export RUNNER_CONFIG := if exec_env == "local" {
+  "./config.local.properties"
+} else if exec_env == "das5" {
+  "/home/gmo520/provxlib/run/config.das5.properties"
+} else {
+  error("unknown environment")
+}
+
 
 # Environment variables required for Spark setup
 @env:
 	touch env
-	# echo 'export JAVA_HOME="/usr/lib/jvm/jre-1.8.0/"' > env
-	# cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
-	# echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
-	# echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+	echo 'export JAVA_HOME="/usr/lib/jvm/jre-11/"' > env
+	cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
+	echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
+	echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
 
 # Copy graph datasets to HDFS
 copy: env
@@ -18,69 +48,43 @@ copy: env
 	source ./env
 	hadoop fs -copyFromLocal $LOCAL_DATASET_DIR /graphs
 
+# DESTRUCTIVE: delete experiments directory
 clean-local: env
   #!/usr/bin/env bash
   source ./env
+  # TODO: ask for user to confirm before proceeding
   rm -r $EXPERIMENTS_DIR
   mkdir -p $EXPERIMENTS_DIR
-
 
 # Clean HDFS directories
 clean-hdfs: env
 	#!/usr/bin/env bash
 	source ./env
 	dirs=(
-	  /user/$USER/checkpoints
-	  /user/$USER/results
-	  /user/$USER/output
-	  /user/$USER/spark-logs
+	  /lineage
+	  /results
+	  /output
+	  /spark-logs
 	)
 	for dir in ${dirs[@]}; do
 	  hadoop fs -rm -r -f $dir
 	  hadoop fs -mkdir -p $dir
 	done
 
-clean: clean-hdfs clean-local
+clean: clean-hdfs #clean-local
 
-setup: clean copy
+# Clean directories and copy graphs to HDFS
+setup: download decompress clean copy
 
 # Run benchmark
 bench description: env
   #!/usr/bin/env bash
   source ./env
-  just -d .. -f ../justfile
-  cp $BENCHMARK_JAR provxlib.jar
-  spark-submit --driver-memory 8G --executor-memory 8G --class lu.magalhaes.gilles.provxlib.benchmark.Runner provxlib.jar --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner provxlib-assembly-0.1.0-SNAPSHOT.jar --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  # post
+  #ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
+  #cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER
 
-post: sizes
-	#!/usr/bin/env bash
-	ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
-	cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER
-
-# Compute size of lineage for experiments
-sizes: env
-	#!/usr/bin/env bash
-	source ./env
-	ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
-	ids=$(find $ARCHIVE_FOLDER -name 'metrics.json' | xargs jq -r '.metadata.lineageDirectory' | grep -v 'null')
-
-	checkpoint_sizes_file=$ARCHIVE_FOLDER/checkpoint_sizes.txt
-	output_sizes_file=$ARCHIVE_FOLDER/output_sizes.txt
-
-	rm -f $checkpoint_sizes_file $output_sizes_file
-	touch $checkpoint_sizes_file $output_sizes_file
-
-	echo $ids
-	for id in $ids; do
-		hadoop fs -du -s /user/gmo520/checkpoints/$id >> $checkpoint_sizes_file
-		hadoop fs -du -s '/user/gmo520/checkpoints/'$id'/*' >> $checkpoint_sizes_file
-	done
-
-	runs=$(hadoop fs -ls /user/gmo520/output | awk '{ print $8 }')
-	echo $runs
-	for run in $runs; do
-		hadoop fs -du $run >> $output_sizes_file
-	done
 
 # Decompress compressed graph datasets
 decompress:
@@ -94,7 +98,6 @@ decompress:
 			tar -C $LOCAL_DATASET_DIR --use-compress-program=unzstd -xvf $file &
 		fi
 	done
-	
 	wait 
 
 # Download graph datasets from LDBC Graphalytics
@@ -128,3 +131,4 @@ download:
 	done
 	
 	wait 
+
