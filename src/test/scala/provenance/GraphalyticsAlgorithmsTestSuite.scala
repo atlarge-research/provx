@@ -8,9 +8,7 @@ import org.apache.spark.graphx.VertexId
 import org.apache.spark.SparkContext
 import org.scalatest.funsuite.AnyFunSuite
 
-class GraphalyticsAlgorithmsTestSuite
-    extends AnyFunSuite
-    with LocalSparkSession {
+class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite {
 
   def algorithmTestLong(
       sc: SparkContext,
@@ -90,7 +88,7 @@ class GraphalyticsAlgorithmsTestSuite
   }
 
   test("BFS") {
-    withSparkSession(spark) { sc =>
+    withSparkSession { sc =>
       val (actualResult, expectedResult) =
         algorithmTestLong(sc.sparkContext, "BFS")
       assertVerticesEqualLong(actualResult, expectedResult)
@@ -98,7 +96,7 @@ class GraphalyticsAlgorithmsTestSuite
   }
 
   test("SSSP") {
-    withSparkSession(spark) { sc =>
+    withSparkSession { sc =>
       val (actualResult, expectedResult) =
         algorithmTestDouble(sc.sparkContext, "SSSP")
       assertVerticesEqualDouble(actualResult, expectedResult)
@@ -106,7 +104,7 @@ class GraphalyticsAlgorithmsTestSuite
   }
 
   test("WCC") {
-    withSparkSession(spark) { sc =>
+    withSparkSession { sc =>
       val (actualResult, expectedResult) =
         algorithmTestLong(sc.sparkContext, "WCC")
       assertVerticesEqualLong(actualResult, expectedResult)
@@ -114,7 +112,7 @@ class GraphalyticsAlgorithmsTestSuite
   }
 
   test("PageRank") {
-    withSparkSession(spark) { sc =>
+    withSparkSession { sc =>
       val (actualResult, expectedResult) =
         algorithmTestDouble(sc.sparkContext, "PR")
 

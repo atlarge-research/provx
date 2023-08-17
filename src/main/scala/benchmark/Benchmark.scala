@@ -44,7 +44,7 @@ object Benchmark {
       new HDFSStorageHandler(description.lineageDir, format = TextFile(true))
     )
 
-    if (args.description.lineageActive) {
+    if (args.description.lineageEnabled) {
       ProvenanceContext.storageStatus.enable()
     } else {
       ProvenanceContext.storageStatus.disable()
@@ -78,7 +78,7 @@ object Benchmark {
       )
     )
 
-    if (description.lineageActive) {
+    if (description.lineageEnabled) {
       run("iterations") = JSONSerializer.serialize(sol.metrics)
       run("lineageDirectory") = description.lineageDir
     }
@@ -125,7 +125,7 @@ object Benchmark {
           "applicationId" -> spark.sparkContext.applicationId,
           "algorithm" -> AlgorithmSerializer.serialize(description.algorithm),
           "graph" -> description.dataset,
-          "provenance" -> description.lineageActive,
+          "provenance" -> description.lineageEnabled,
           "runNr" -> description.runNr
         )
       ),
@@ -168,7 +168,7 @@ object Benchmark {
     val spark = SparkSession
       .builder()
       .appName(
-        s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageActive}/${description.runNr} benchmark"
+        s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageEnabled}/${description.runNr} benchmark"
       )
       .getOrCreate()
 

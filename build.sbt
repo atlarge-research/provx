@@ -8,6 +8,9 @@ lazy val root = (project in file("."))
     idePackagePrefix := Some("lu.magalhaes.gilles.provxlib")
   )
 
+// In order not to have more than one Spark Session running at the same time
+Test / parallelExecution := false
+
 val sparkVersion = "3.3.2"
 
 libraryDependencies ++= Seq(

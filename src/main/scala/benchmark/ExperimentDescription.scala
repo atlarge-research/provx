@@ -20,8 +20,6 @@ case class ExperimentDescription(
     dataset: String,
     // Algorithm to run
     algorithm: ExperimentParameters.Algorithm,
-    // Lineage enabled")
-    lineageActive: Boolean,
     // Run number
     runNr: Long,
     // Directory to store results (local filesystem)
@@ -29,7 +27,11 @@ case class ExperimentDescription(
     // Graphalytics benchmark configuration
     benchmarkConfig: BenchmarkConfig,
     // Path where to storage lineage
-    lineageDir: String
+    lineageDir: String,
+    // Lineage enabled
+    lineageEnabled: Boolean,
+    // Whether compression is enabled
+    compressionEnabled: Boolean
 )
 
 object AlgorithmSerializer {
@@ -61,11 +63,12 @@ object ExperimentDescriptionSerializer {
         "id" -> d.experimentID,
         "dataset" -> d.dataset,
         "algorithm" -> AlgorithmSerializer.serialize(d.algorithm),
-        "lineageActive" -> d.lineageActive,
         "runNr" -> d.runNr,
         "outputDir" -> d.outputDir.toString(),
         "configPath" -> d.benchmarkConfig.path,
-        "lineageDir" -> d.lineageDir
+        "lineageDir" -> d.lineageDir,
+        "lineageEnabled" -> d.lineageEnabled,
+        "compressionEnabled" -> d.compressionEnabled
       )
       .toString()
   }
@@ -76,13 +79,14 @@ object ExperimentDescriptionSerializer {
       experimentID = data("id").str,
       dataset = data("dataset").str,
       algorithm = AlgorithmSerializer.deserialize(data("algorithm").str),
-      lineageActive = data("lineageActive").bool,
       runNr = data("runNr").str.toLong,
       outputDir = os.Path(data("outputDir").str),
       benchmarkConfig = new BenchmarkConfig(
         data("configPath").str
       ),
-      lineageDir = data("lineageDir").str
+      lineageDir = data("lineageDir").str,
+      lineageEnabled = data("lineageEnabled").bool,
+      compressionEnabled = data("compressionEnabled").bool
     )
   }
 }

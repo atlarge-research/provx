@@ -4,7 +4,7 @@ package provenance
 import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession
 import org.scalatest.funsuite.AnyFunSuite
 
-class ProvenanceGraphTests extends AnyFunSuite with LocalSparkSession {
+class ProvenanceGraphTests extends AnyFunSuite {
 
   test("Two chained graphs") {
 //    withSpark { sc =>

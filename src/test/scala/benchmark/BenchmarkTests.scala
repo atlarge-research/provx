@@ -7,9 +7,9 @@ import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession
 import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
 import org.scalatest.funsuite.AnyFunSuite
 
-class BenchmarkTests extends AnyFunSuite with LocalSparkSession {
+class BenchmarkTests extends AnyFunSuite {
   test("Benchmark test") {
-    withSparkSession(spark) { sc =>
+    withSparkSession { sc =>
       val configPath =
         getClass.getResource(s"/example-config.properties").toString
       //    val expectedOutput = getClass.getResource(s"/example-directed").toString
@@ -22,11 +22,12 @@ class BenchmarkTests extends AnyFunSuite with LocalSparkSession {
           experimentID = "1",
           dataset = "example-directed",
           algorithm = ExperimentParameters.BFS(),
-          lineageActive = true,
+          lineageEnabled = true,
           runNr = 1,
           outputDir = outputDir,
           benchmarkConfig = benchmarkConfig,
-          lineageDir = benchmarkConfig.lineagePath
+          lineageDir = benchmarkConfig.lineagePath,
+          compressionEnabled = false
         )
       )
       Benchmark.run(sc, config)

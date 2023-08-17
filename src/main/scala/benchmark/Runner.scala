@@ -1,7 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig}
+import benchmark.configuration.{
+  BenchmarkConfig,
+  GraphalyticsConfiguration,
+  NotificationsConfig
+}
 import benchmark.utils._
 
 import mainargs.{arg, main, ParserForClass}
@@ -19,7 +23,12 @@ object Runner {
       @arg(name = "config", doc = "Graphalytics benchmark configuration")
       benchmarkConfig: BenchmarkConfig,
       @arg(name = "description", doc = "Experiment description")
-      description: String = ""
+      description: String = "",
+      @arg(
+        name = "dry-run",
+        doc = "Print experiment configurations that will be executed"
+      )
+      dryRun: Boolean = false
   )
 
   def run(args: Config): Long = {
@@ -61,7 +70,7 @@ object Runner {
 
     println(s"Configurations count: ${configurations.length}")
 
-    for (experiment <- Seq(configurations.head)) {
+    for (experiment <- configurations) {
       os.makeDir.all(experiment.outputDir)
 
       println(
@@ -70,7 +79,8 @@ object Runner {
             s"Experiment ${experiment.experimentID}:",
             s"algorithm=${experiment.algorithm}",
             s"graph=${experiment.dataset}",
-            s"lineage=${experiment.lineageActive}",
+            s"lineage=${experiment.lineageEnabled}",
+            s"compression=${experiment.compressionEnabled}",
             s"run=${experiment.runNr}"
           ) mkString " ") + Console.RESET
       )
@@ -79,46 +89,47 @@ object Runner {
       val outputFile = new File((experiment.outputDir / "stdout.log").toString)
       val errorFile = new File((experiment.outputDir / "stderr.log").toString)
 
-      val (app, elapsedTime) = TimeUtils.timed {
-        val appArgs = Array(
-          "--config",
-          ExperimentDescriptionSerializer.serialize(experiment)
-        )
+      val appArgs = Array(
+        "--config",
+        ExperimentDescriptionSerializer.serialize(experiment)
+      )
 
-        println("Running configuration:")
-        println(appArgs(1))
+      println("Running configuration:")
+      println(appArgs(1))
 
-        val app = new SparkLauncher()
-          .directory(directory)
-          .setAppResource(args.benchmarkConfig.benchmarkJar)
-          .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
-          .addAppArgs(appArgs: _*)
-          .redirectOutput(outputFile)
-          .redirectError(errorFile)
-          .setSparkHome(sparkHome.get)
-          .setConf("spark.eventLog.enabled", "true")
-          .setConf("spark.eventLog.dir", args.benchmarkConfig.sparkLogs)
-          .setVerbose(true)
-          .launch()
+      if (!args.dryRun) {
+        val (app, elapsedTime) = TimeUtils.timed {
+          val launcher = new SparkLauncher()
+            .directory(directory)
+            .setAppResource(args.benchmarkConfig.benchmarkJar)
+            .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
+            .addAppArgs(appArgs: _*)
+            .redirectOutput(outputFile)
+            .redirectError(errorFile)
+            .setSparkHome(sparkHome.get)
+            .setConf("spark.eventLog.enabled", "true")
+            .setConf("spark.eventLog.dir", args.benchmarkConfig.sparkLogs)
+            .setVerbose(true)
+            .launch()
 
-        app.waitFor()
+          launcher.waitFor()
+          launcher
+        }
 
-        app
-      }
+        if (app.exitValue() != 0) {
+          println(s"Error occurred: exit code ${app.exitValue()}")
+          return 1
+        } else {
+          // Empty SUCCESS file indicates that experiment terminated successfully
+          os.write(experiment.outputDir / "SUCCESS", "")
 
-      if (app.exitValue() != 0) {
-        println(s"Error occurred: exit code ${app.exitValue()}")
-        return 1
-      } else {
-        // Empty SUCCESS file indicates that experiment terminated successfully
-        os.write(experiment.outputDir / "SUCCESS", "")
-
-        val lineageStatus = if (experiment.lineageActive) 1 else 0
-        PushoverNotifier.notify(
-          new NotificationsConfig(args.benchmarkConfig.getPath),
-          s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${lineageStatus}/${experiment.runNr}",
-          f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}"
-        )
+          val lineageStatus = if (experiment.lineageEnabled) 1 else 0
+          PushoverNotifier.notify(
+            new NotificationsConfig(args.benchmarkConfig.getPath),
+            s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${lineageStatus}/${experiment.runNr}",
+            f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}"
+          )
+        }
       }
     }
 
@@ -147,21 +158,33 @@ object Runner {
           .intersect(benchmarkConfig.algorithms.toSet)
           .map(algorithm => (dataset, algorithm))
       })
-      .flatMap(v => lineageEnabled.map(l => (v._1, v._2, l)))
-      .flatMap(v => runs.map(r => (v._1, v._2, v._3, r)))
-      .map(v => (v._1, v._2, v._3, v._4, UUID.randomUUID()))
-      .map(v =>
+      .flatMap(v => {
+        lineageEnabled.flatMap(l => {
+          if (l) {
+            // If lineage is enabled, run experiment with compression turned on/off
+            Seq((v._1, v._2, true, true), (v._1, v._2, true, false))
+          } else {
+            // If lineage is disabled, just run experiment one experiment
+            Seq((v._1, v._2, false, false))
+          }
+        })
+      })
+      .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, r)))
+      .map(v => {
+        val experimentID = UUID.randomUUID()
         ExperimentDescription(
-          experimentID = v._5.toString,
+          experimentID = experimentID.toString,
           dataset = v._1,
           algorithm = AlgorithmSerializer.deserialize(v._2.toUpperCase),
-          lineageActive = v._3,
-          runNr = v._4,
-          outputDir = outputDir / s"experiment-${v._5}",
+          lineageEnabled = v._3,
+          compressionEnabled = v._4,
+          runNr = v._5,
+          outputDir = outputDir / s"experiment-${experimentID}",
           benchmarkConfig = benchmarkConfig,
-          lineageDir = benchmarkConfig.lineagePath + s"/experiment-${v._5}"
+          lineageDir =
+            benchmarkConfig.lineagePath + s"/experiment-${experimentID}"
         )
-      )
+      })
   }
 
   def main(args: Array[String]): Unit = {
