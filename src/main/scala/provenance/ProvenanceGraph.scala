@@ -1,22 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.events.{Algorithm, EventType, Operation, PregelAlgorithm}
+import provenance.events._
 
+import scalax.collection.{AnyGraph, OneOrMore}
 import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
-import scalax.collection.generic.{AbstractDiEdge, Edge}
+import scalax.collection.generic.{AbstractDiEdge, Edge, MultiEdge}
 import scalax.collection.immutable.Graph
-import scalax.collection.io.dot.{
-  DotAttr,
-  DotEdgeStmt,
-  DotGraph,
-  DotNodeStmt,
-  DotRootGraph,
-  Graph2DotExport,
-  Id,
-  NodeId
-}
-import scalax.collection.AnyGraph
+import scalax.collection.io.dot.{DotAttr, DotEdgeStmt, DotGraph, DotNodeStmt, DotRootGraph, Graph2DotExport, Id, NodeId}
 
 object ProvenanceGraph {
   type NodePredicate = Node => Boolean
@@ -34,6 +25,9 @@ object ProvenanceGraph {
 
   case class Relation(input: Node, output: Node, event: EventType)
       extends AbstractDiEdge(input, output)
+      with MultiEdge {
+    override def extendKeyBy: OneOrMore[Any] = OneOrMore.one(event)
+  }
 
   implicit class MyLDiEdgeInfixLabelConstructor(val e: DiEdge[Node])
       extends AnyVal {
@@ -62,10 +56,12 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
     ): Option[(DotGraph, DotEdgeStmt)] = {
       val edge = innerEdge.outer.event.toString
       val edgeColor = innerEdge.outer.event match {
-        case Algorithm(_)      => "gold"
-        case Operation(_)      => "indianred2"
-        case PregelAlgorithm() => "green"
-        case _                 => "black"
+        case Algorithm(_)           => "darkorange"
+        case Operation(_)           => "indianred2"
+        case PregelAlgorithm()      => "green"
+        case PregelLifecycleStart() => "darkviolet"
+        case PregelIteration(_)     => "darkorchid1"
+        case _                      => "black"
       }
       Some(
         root,

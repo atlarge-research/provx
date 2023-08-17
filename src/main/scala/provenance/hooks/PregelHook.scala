@@ -2,8 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package provenance.hooks
 
 import provenance.GraphLineage
-
-import lu.magalhaes.gilles.provxlib.provenance.events.{Algorithm, EventType}
+import provenance.events.{Algorithm, EventType}
 
 import scala.reflect.ClassTag
 

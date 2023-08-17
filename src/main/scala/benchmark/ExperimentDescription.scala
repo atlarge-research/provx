@@ -27,7 +27,9 @@ case class ExperimentDescription(
     // Directory to store results (local filesystem)
     outputDir: os.Path,
     // Graphalytics benchmark configuration
-    benchmarkConfig: BenchmarkConfig
+    benchmarkConfig: BenchmarkConfig,
+    // Path where to storage lineage
+    lineageDir: String
 )
 
 object AlgorithmSerializer {
@@ -62,7 +64,8 @@ object ExperimentDescriptionSerializer {
         "lineageActive" -> d.lineageActive,
         "runNr" -> d.runNr,
         "outputDir" -> d.outputDir.toString(),
-        "configPath" -> d.benchmarkConfig.path
+        "configPath" -> d.benchmarkConfig.path,
+        "lineageDir" -> d.lineageDir
       )
       .toString()
   }
@@ -78,7 +81,8 @@ object ExperimentDescriptionSerializer {
       outputDir = os.Path(data("outputDir").str),
       benchmarkConfig = new BenchmarkConfig(
         data("configPath").str
-      )
+      ),
+      lineageDir = data("lineageDir").str
     )
   }
 }

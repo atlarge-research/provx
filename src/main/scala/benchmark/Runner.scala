@@ -62,24 +62,22 @@ object Runner {
     println(s"Configurations count: ${configurations.length}")
 
     for (experiment <- Seq(configurations.head)) {
-      val expDir =
-        currentExperimentPath.get / s"experiment-${experiment.experimentID}"
-
-      os.makeDir.all(expDir)
+      os.makeDir.all(experiment.outputDir)
 
       println(
-        Seq(
-          s"Experiment ${experiment.experimentID}:",
-          s"algorithm=${experiment.algorithm}",
-          s"graph=${experiment.dataset}",
-          s"lineage=${experiment.lineageActive}",
-          s"run=${experiment.runNr}"
-        ) mkString " "
+        Console.GREEN +
+          (Seq(
+            s"Experiment ${experiment.experimentID}:",
+            s"algorithm=${experiment.algorithm}",
+            s"graph=${experiment.dataset}",
+            s"lineage=${experiment.lineageActive}",
+            s"run=${experiment.runNr}"
+          ) mkString " ") + Console.RESET
       )
 
       val directory = new File(System.getProperty("user.dir"))
-      val outputFile = new File((expDir / "stdout.log").toString)
-      val errorFile = new File((expDir / "stderr.log").toString)
+      val outputFile = new File((experiment.outputDir / "stdout.log").toString)
+      val errorFile = new File((experiment.outputDir / "stderr.log").toString)
 
       val (app, elapsedTime) = TimeUtils.timed {
         val appArgs = Array(
@@ -112,6 +110,9 @@ object Runner {
         println(s"Error occurred: exit code ${app.exitValue()}")
         return 1
       } else {
+        // Empty SUCCESS file indicates that experiment terminated successfully
+        os.write(experiment.outputDir / "SUCCESS", "")
+
         val lineageStatus = if (experiment.lineageActive) 1 else 0
         PushoverNotifier.notify(
           new NotificationsConfig(args.benchmarkConfig.getPath),
@@ -121,7 +122,7 @@ object Runner {
       }
     }
 
-    // Create an empty SUCCESS file to indicate that experiments terminated successfully
+    // Empty SUCCESS file indicates that ALL experiments terminated successfully
     os.write(currentExperimentPath.get / "SUCCESS", "")
 
     0
@@ -156,8 +157,9 @@ object Runner {
           algorithm = AlgorithmSerializer.deserialize(v._2.toUpperCase),
           lineageActive = v._3,
           runNr = v._4,
-          outputDir = outputDir,
-          benchmarkConfig = benchmarkConfig
+          outputDir = outputDir / s"experiment-${v._5}",
+          benchmarkConfig = benchmarkConfig,
+          lineageDir = benchmarkConfig.lineagePath + s"/experiment-${v._5}"
         )
       )
   }

@@ -6,3 +6,7 @@ trait EventType
 case class Algorithm(name: String) extends EventType
 case class Operation(name: String) extends EventType
 case class PregelAlgorithm() extends EventType
+
+case class PregelLifecycleStart() extends EventType
+case class PregelLifecycleStop() extends EventType
+case class PregelIteration(iteration: Long) extends EventType

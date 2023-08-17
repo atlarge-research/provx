@@ -1,8 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-class Toggle {
-  private var state = false
+class Toggle(initialValue: Boolean) {
+  private var state = initialValue
 
   def isEnabled: Boolean = state
 

@@ -21,8 +21,9 @@ object ProvenanceContext {
   val hooks = new HooksRegistry()
   val graph = new ProvenanceGraph()
 
-  val tracingStatus = new Toggle()
-  val storageStatus = new Toggle()
+  // TODO: check if tracing disabled, then also disable storage
+  val tracingStatus = new Toggle(true)
+  val storageStatus = new Toggle(false)
 
   def isTracingEnabled: Boolean = tracingStatus.isEnabled
 

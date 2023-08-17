@@ -4,7 +4,7 @@ package provenance
 import provenance.algorithms._
 import provenance.events.{Algorithm, EventType, Operation}
 import provenance.metrics.ObservationSet
-import provenance.query.CaptureFilter
+import provenance.query.{CaptureFilter, DataPredicate, ProvenancePredicate}
 import provenance.storage.StorageLocation
 
 import org.apache.spark.graphx._
@@ -61,7 +61,14 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
     LineageLCC.run(this)
   }
 
-  def capture(captureFilter: CaptureFilter): GraphLineage[VD, ED] = {
+  def capture(
+      provenanceFilter: ProvenancePredicate,
+      dataFilter: DataPredicate[VD, ED] = DataPredicate()
+  ): GraphLineage[VD, ED] = {
+    val captureFilter = CaptureFilter(
+      dataFilter = dataFilter,
+      provenanceFilter = provenanceFilter
+    )
     new GraphLineage(graph, metrics, captureFilter = Some(captureFilter))
   }
 

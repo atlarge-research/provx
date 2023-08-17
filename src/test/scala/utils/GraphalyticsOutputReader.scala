@@ -4,7 +4,11 @@ package utils
 import scala.io.Source
 
 object GraphalyticsOutputReader {
-  def readFile[T](path: String, func: String => T, maxValue: T): Array[(Long, T)] = {
+  def readFile[T](
+      path: String,
+      func: String => T,
+      maxValue: T
+  ): Array[(Long, T)] = {
     val bufferedSource = Source.fromURL(path)
     val result = bufferedSource
       .getLines()
@@ -21,8 +25,8 @@ object GraphalyticsOutputReader {
     bufferedSource.close()
     result
   }
-  def readFloat(path: String): Array[(Long, Float)] =
-    readFile(path, x => x.toFloat, Float.PositiveInfinity)
+  def readDouble(path: String): Array[(Long, Double)] =
+    readFile(path, x => x.toFloat.toDouble, Double.PositiveInfinity)
 
   def readLong(path: String): Array[(Long, Long)] =
     readFile(path, x => x.toLong, Long.MaxValue)

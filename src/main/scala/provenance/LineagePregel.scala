@@ -1,11 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.events.{
-  PregelAlgorithm,
-  PregelIteration,
-  PregelLifecycleStart
-}
+import provenance.events.{PregelAlgorithm, PregelIteration, PregelLifecycleStart}
 import provenance.hooks.PregelHook
 import provenance.metrics.Gauge
 
@@ -63,8 +59,8 @@ object LineagePregel extends Logging {
 
         hooks.foreach(_.preIteration(g))
 
-        g = Utils.trace(prevG, PregelIteration(i)) {
-          prevG = g
+        prevG = g
+        g = Utils.trace(g, PregelIteration(i)) {
           g.joinVertices(messages)(vprog)
         }
 

@@ -1,12 +1,10 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import utils.LocalSparkContext
-
-import org.apache.spark.graphx.{Edge, Graph}
+import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession
 import org.scalatest.funsuite.AnyFunSuite
 
-class ProvenanceGraphTests extends AnyFunSuite with LocalSparkContext {
+class ProvenanceGraphTests extends AnyFunSuite with LocalSparkSession {
 
   test("Two chained graphs") {
 //    withSpark { sc =>

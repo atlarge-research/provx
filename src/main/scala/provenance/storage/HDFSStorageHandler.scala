@@ -25,13 +25,12 @@ class HDFSStorageHandler(
     val dir = s"$lineageDirectory/$name.csv"
     println(s"Saving data to ${dir}")
     format match {
-      case TextFile(compression) => {
+      case TextFile(compression) =>
         if (compression) {
           g.vertices.saveAsTextFile(dir, classOf[GzipCodec])
         } else {
           g.vertices.saveAsTextFile(dir)
         }
-      }
       case ObjectFile() => g.vertices.saveAsObjectFile(dir)
       case _            => throw new NotImplementedError("unknown storage format")
     }

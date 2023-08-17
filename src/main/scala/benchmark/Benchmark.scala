@@ -6,8 +6,8 @@ import benchmark.ExperimentParameters.{BFS, PageRank, SSSP, WCC}
 import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
-import provenance.query.{CaptureFilter, ProvenancePredicate}
-import provenance.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler}
+import provenance.query.ProvenancePredicate
+import provenance.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler, TextFile}
 
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
@@ -22,7 +22,7 @@ object Benchmark {
       description: ExperimentDescription
   )
 
-  def run(args: Config): (Unit, Long) = TimeUtils.timed {
+  def run(spark: SparkSession, args: Config): (Unit, Long) = TimeUtils.timed {
     val description = args.description
     args.description.benchmarkConfig.debug()
     println(s"Run number   : ${description.runNr}")
@@ -30,34 +30,30 @@ object Benchmark {
 
     val metricsLocation = description.outputDir / "metrics.json"
 
-    val spark = SparkSession
-      .builder()
-      .appName(
-        s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageActive}/${description.runNr} benchmark"
-      )
-      .getOrCreate()
-
     val pathPrefix =
       s"${description.benchmarkConfig.datasetPath}/${description.dataset}"
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage()
 
     // Create lineage directory for experiment before running it
-    val lineageDirectory = s"/lineage/${description.experimentID}"
-    val lineagePath = new Path(lineageDirectory)
+    val lineagePath = new Path(description.lineageDir)
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
     ProvenanceContext.setStorageHandler(
-      new HDFSStorageHandler(lineageDirectory)
+      new HDFSStorageHandler(description.lineageDir, format = TextFile(true))
     )
 
+    if (args.description.lineageActive) {
+      ProvenanceContext.storageStatus.enable()
+    } else {
+      ProvenanceContext.storageStatus.disable()
+    }
+
     val filteredGL = gl.capture(
-      CaptureFilter(provenanceFilter =
-        ProvenancePredicate(
-          nodePredicate = ProvenanceGraph.allNodes,
-          edgePredicate = ProvenanceGraph.allEdges
-        )
+      provenanceFilter = ProvenancePredicate(
+        nodePredicate = ProvenanceGraph.allNodes,
+        edgePredicate = ProvenanceGraph.allEdges
       )
     )
 
@@ -84,7 +80,7 @@ object Benchmark {
 
     if (description.lineageActive) {
       run("iterations") = JSONSerializer.serialize(sol.metrics)
-      run("lineageDirectory") = lineageDirectory
+      run("lineageDirectory") = description.lineageDir
     }
 
     val resultsPath =
@@ -96,25 +92,29 @@ object Benchmark {
       "metrics" -> run
     )
 
-    val sizes = ProvenanceContext.graph.graph.nodes.map(
-      (n: ProvenanceGraph.Type#NodeT) => {
-        val size: Long = if (n.outer.g.storageLocation.isDefined) {
-          n.outer.g.storageLocation.get match {
-            case EmptyLocation()    => 0
-            case HDFSLocation(path) => fileSize(spark, path)
-            case _ =>
-              throw new NotImplementedError("unknown location descriptor")
-          }
-        } else 0
+    os.makeDir(description.outputDir)
+    os.write(metricsLocation, results)
+
+    val sizes = ProvenanceContext.graph.graph.nodes
+      .map((n: ProvenanceGraph.Type#NodeT) => {
+        val size = n.outer.g.storageLocation match {
+          case Some(loc) =>
+            loc match {
+              case EmptyLocation() => 0L
+              case HDFSLocation(path) =>
+                fileSize(spark, path)
+              case _ =>
+                throw new NotImplementedError("unknown location descriptor")
+            }
+          case None => 0L
+        }
+
         ujson.Obj(
           "graphID" -> n.outer.g.id,
           "size" -> size.toInt,
           "metrics" -> JSONSerializer.serialize(n.outer.g.metrics)
         )
-      }
-    )
-
-    os.write(metricsLocation, results)
+      })
 
     val provenance = ujson.Obj(
       "inputs" -> ujson.Obj(
@@ -139,7 +139,20 @@ object Benchmark {
       )
     )
 
-    os.write(args.description.outputDir / "provenance.json", provenance)
+    os.write(
+      description.outputDir / "graph.dot",
+      ProvenanceContext.graph.toDot()
+    )
+
+    os.write(
+      description.outputDir / "provgraph.json",
+      ProvenanceContext.graph.toJson()
+    )
+
+    os.write(description.outputDir / "provenance.json", provenance)
+
+    // Clean up lineage folder after being done with it
+//    fs.delete(lineagePath, true)
   }
 
   def fileSize(sparkSession: SparkSession, path: String): Long = {
@@ -150,9 +163,16 @@ object Benchmark {
   }
 
   def main(args: Array[String]): Unit = {
-    val (_, elapsedTime) = run(
-      ParserForClass[Config].constructOrExit(args.toIndexedSeq)
-    )
+    val parsedArgs = ParserForClass[Config].constructOrExit(args.toIndexedSeq)
+    val description = parsedArgs.description
+    val spark = SparkSession
+      .builder()
+      .appName(
+        s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageActive}/${description.runNr} benchmark"
+      )
+      .getOrCreate()
+
+    val (_, elapsedTime) = run(spark, parsedArgs)
     println(s"Benchmark run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
   }
 }

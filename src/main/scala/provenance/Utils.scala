@@ -34,9 +34,9 @@ object Utils {
           e.outer.output.g == res && e.outer.event == event && res.captureFilter.get.provenanceFilter
             .edgePredicate(e.outer)
         }) == 1
-      println(
-        s"query result defined: ${queryResult} ${res.id} ${event.toString}"
-      )
+//      println(
+//        s"query result defined: ${queryResult} ${res.id} ${event.toString}"
+//      )
 
       // Save graph when capture query results
       if (queryResult) {
