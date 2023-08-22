@@ -23,11 +23,11 @@ class BenchmarkTests extends AnyFunSuite {
           dataset = "example-directed",
           algorithm = ExperimentParameters.BFS(),
           lineageEnabled = true,
+          compressionEnabled = false,
           runNr = 1,
           outputDir = outputDir,
           benchmarkConfig = benchmarkConfig,
-          lineageDir = benchmarkConfig.lineagePath,
-          compressionEnabled = false
+          lineageDir = benchmarkConfig.lineagePath
         )
       )
       Benchmark.run(sc, config)

@@ -13,4 +13,8 @@ class Toggle(initialValue: Boolean) {
   def disable(): Unit = {
     state = false
   }
+
+  def set(value: Boolean) = {
+    state = value
+  }
 }

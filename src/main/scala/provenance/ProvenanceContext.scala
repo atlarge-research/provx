@@ -4,12 +4,17 @@ package provenance
 import provenance.hooks.HooksRegistry
 import provenance.storage.{NullStorageHandler, StorageHandler}
 
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.SparkSession
+
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 
 object ProvenanceContext {
 
   private val nextGLId = new AtomicInteger(0)
+
+  var sparkContext: Option[SparkSession] = None
 
   private[provenance] def newGLId(gl: GraphLineage[_, _]): Int = {
     elements += gl

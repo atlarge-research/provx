@@ -7,7 +7,16 @@ import scalax.collection.{AnyGraph, OneOrMore}
 import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
 import scalax.collection.generic.{AbstractDiEdge, Edge, MultiEdge}
 import scalax.collection.immutable.Graph
-import scalax.collection.io.dot.{DotAttr, DotEdgeStmt, DotGraph, DotNodeStmt, DotRootGraph, Graph2DotExport, Id, NodeId}
+import scalax.collection.io.dot.{
+  DotAttr,
+  DotEdgeStmt,
+  DotGraph,
+  DotNodeStmt,
+  DotRootGraph,
+  Graph2DotExport,
+  Id,
+  NodeId
+}
 
 object ProvenanceGraph {
   type NodePredicate = Node => Boolean
@@ -121,7 +130,7 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
     new ProvenanceGraph(result.asInstanceOf[Graph[Node, Relation]])
   }
 
-  def toJson(): String = {
+  def toJson(): ujson.Obj = {
     val nodes = graph.edges
       .flatMap((e: ProvenanceGraph.Type#EdgeT) =>
         Seq(e.outer.input.g, e.outer.output.g)
@@ -144,7 +153,6 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
         "nodes" -> ujson.Arr(nodes),
         "edges" -> ujson.Arr(edges)
       )
-      .toString()
   }
 
   def byId(id: Long): Option[GraphLineage[_, _]] = {

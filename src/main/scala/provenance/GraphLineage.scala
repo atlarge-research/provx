@@ -9,6 +9,7 @@ import provenance.storage.StorageLocation
 
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SparkSession
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -27,7 +28,10 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
     storageLocation = Some(sl)
   }
 
-  def withLineage(): GraphLineage[VD, ED] = this
+  def withLineage(sparkSession: SparkSession): GraphLineage[VD, ED] = {
+    ProvenanceContext.sparkContext = Some(sparkSession)
+    this
+  }
 
   def pageRank(
       numIter: Int,

@@ -70,13 +70,16 @@ object Runner {
 
     println(s"Configurations count: ${configurations.length}")
 
-    for (experiment <- configurations) {
+    val numConfigurations = configurations.length
+
+    for ((experiment, idx) <- configurations.view.zipWithIndex) {
       os.makeDir.all(experiment.outputDir)
 
       println(
-        Console.GREEN +
+        Console.BLUE +
           (Seq(
-            s"Experiment ${experiment.experimentID}:",
+            s"Experiment ${idx + 1}/${numConfigurations}:",
+            s"id=${experiment.experimentID}",
             s"algorithm=${experiment.algorithm}",
             s"graph=${experiment.dataset}",
             s"lineage=${experiment.lineageEnabled}",
@@ -109,9 +112,15 @@ object Runner {
             .setSparkHome(sparkHome.get)
             .setConf("spark.eventLog.enabled", "true")
             .setConf("spark.eventLog.dir", args.benchmarkConfig.sparkLogs)
+            .setConf("spark.ui.prometheus.enabled", "true")
+            .setConf("spark.eventLog.logStageExecutorMetrics", "true")
+            .setConf("spark.metrics.executorMetricsSource.enabled", "true")
+//            .setConf("spark.driver.memory", "8G")
+//            .setConf("spark.executor.memory", "8G")
             .setVerbose(true)
             .launch()
 
+          // TODO: Launch in another thread and timeout thread if more than 30 minutes
           launcher.waitFor()
           launcher
         }
@@ -123,6 +132,9 @@ object Runner {
           // Empty SUCCESS file indicates that experiment terminated successfully
           os.write(experiment.outputDir / "SUCCESS", "")
 
+          println(
+            Console.GREEN + f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}" + Console.RESET
+          )
           val lineageStatus = if (experiment.lineageEnabled) 1 else 0
           PushoverNotifier.notify(
             new NotificationsConfig(args.benchmarkConfig.getPath),
@@ -143,7 +155,7 @@ object Runner {
       outputDir: os.Path,
       benchmarkConfig: BenchmarkConfig
   ): Array[ExperimentDescription] = {
-    val lineageEnabled = List(true, false)
+    val tracingEnabled = List(true, false)
     val runs = Range.inclusive(1, benchmarkConfig.repetitions).toList
 
     benchmarkConfig.graphs
@@ -159,17 +171,24 @@ object Runner {
           .map(algorithm => (dataset, algorithm))
       })
       .flatMap(v => {
-        lineageEnabled.flatMap(l => {
+        tracingEnabled.flatMap(l => {
           if (l) {
             // If lineage is enabled, run experiment with compression turned on/off
-            Seq((v._1, v._2, true, true), (v._1, v._2, true, false))
+            Seq(
+              // Storage on, compression on
+              (v._1, v._2, true, true, true),
+              // Storage on, compression off
+              (v._1, v._2, true, true, false),
+              // Storage off, comopression off
+              (v._1, v._2, true, false, false)
+            )
           } else {
-            // If lineage is disabled, just run experiment one experiment
-            Seq((v._1, v._2, false, false))
+            // If tracing is disabled, just run one experiment
+            Seq((v._1, v._2, false, false, false))
           }
         })
       })
-      .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, r)))
+      .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, v._5, r)))
       .map(v => {
         val experimentID = UUID.randomUUID()
         ExperimentDescription(
@@ -177,8 +196,9 @@ object Runner {
           dataset = v._1,
           algorithm = AlgorithmSerializer.deserialize(v._2.toUpperCase),
           lineageEnabled = v._3,
-          compressionEnabled = v._4,
-          runNr = v._5,
+          storageEnabled = v._4,
+          compressionEnabled = v._5,
+          runNr = v._6,
           outputDir = outputDir / s"experiment-${experimentID}",
           benchmarkConfig = benchmarkConfig,
           lineageDir =

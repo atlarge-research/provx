@@ -1,4 +1,4 @@
-exec_env := "das5"
+exec_env := "local"
 
 export BENCHMARK_JAR := "../target/scala-2.13/provxlib-assembly-0.1.0-SNAPSHOT.jar"
 export EXPERIMENTS_DIR := if exec_env == "local" {
@@ -26,7 +26,7 @@ export LOCAL_DATASET_DIR := if exec_env == "local" {
 }
 
 export RUNNER_CONFIG := if exec_env == "local" {
-  "./config.local.properties"
+  "/Users/gm/vu/thesis/impl/provxlib/run/config.local.properties"
 } else if exec_env == "das5" {
   "/home/gmo520/provxlib/run/config.das5.properties"
 } else {
@@ -37,10 +37,13 @@ export RUNNER_CONFIG := if exec_env == "local" {
 # Environment variables required for Spark setup
 @env:
 	touch env
-	echo 'export JAVA_HOME="/usr/lib/jvm/jre-11/"' > env
-	cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
+	#echo 'export JAVA_HOME="/usr/lib/jvm/jre-11/"' > env
+	echo 'export JAVA_HOME="/nix/store/m1wg1i4waym0n1yv4fh6ca63ypc6xzy2-zulu11.48.21-ca-jdk-11.0.11"' > env
+	#cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
 	echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
 	echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+	#echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
+	#echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
 
 # Copy graph datasets to HDFS
 copy: env
@@ -80,7 +83,8 @@ setup: download decompress clean copy
 bench description: env
   #!/usr/bin/env bash
   source ./env
-  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner provxlib-assembly-0.1.0-SNAPSHOT.jar --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner /Users/gm/vu/thesis/impl/provxlib/target/scala-2.13/provxlib-assembly-0.1.0-SNAPSHOT.jar --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  #spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner provxlib-assembly-0.1.0-SNAPSHOT.jar --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
   # post
   #ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
   #cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER

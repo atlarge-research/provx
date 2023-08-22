@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.events.EventType
+import provenance.events.{EventType, Operation}
 
 import scala.reflect.ClassTag
 
@@ -29,6 +29,11 @@ object Utils {
         )
       }
 
+      if (res.storageLocation.isDefined) {
+        println(s"Storage location already defined for G${res.id}")
+        return res
+      }
+
       val queryResult =
         lineageGraph.graph.edges.count((e: ProvenanceGraph.Type#EdgeT) => {
           e.outer.output.g == res && e.outer.event == event && res.captureFilter.get.provenanceFilter
@@ -38,10 +43,31 @@ object Utils {
 //        s"query result defined: ${queryResult} ${res.id} ${event.toString}"
 //      )
 
+      val storeGraph = event match {
+        case Operation(name) =>
+          name match {
+            // We cannot store something we're trying to remove
+            case "unpersist" | "unpersistVertices" => false
+            case _                                 => true
+          }
+      }
+
+      if (!storeGraph) {
+        return res
+      }
+
       // Save graph when capture query results
       if (queryResult) {
-        val storageLoc = ProvenanceContext.storageHandler.save(res)
-        res.setStorageLocation(storageLoc)
+        if (ProvenanceContext.sparkContext.isDefined) {
+          println("SparkSession defined in ProvenanceContext")
+          val storageLoc = ProvenanceContext.storageHandler.save(
+            ProvenanceContext.sparkContext.get,
+            res
+          )
+          res.setStorageLocation(storageLoc)
+        }
+//        val storageLoc = ProvenanceContext.storageHandler.save(res)
+//        res.setStorageLocation(storageLoc)
       }
       res
     } else {

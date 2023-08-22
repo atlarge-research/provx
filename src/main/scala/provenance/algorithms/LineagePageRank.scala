@@ -1,9 +1,14 @@
 package lu.magalhaes.gilles.provxlib
 package provenance.algorithms
 
-import provenance.GraphLineage
+import provenance.{GraphLineage, Utils}
 import provenance.metrics.{Gauge, ObservationSet}
 
+import lu.magalhaes.gilles.provxlib.provenance.events.{
+  PregelIteration,
+  PregelLifecycleStart,
+  PregelLifecycleStop
+}
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
 
@@ -18,15 +23,18 @@ object LineagePageRank extends Logging {
   ): GraphLineage[Double, Unit] = {
     val vertexCount = gl.numVertices
 
-    var workGraph: GraphLineage[Double, Double] = gl
-      // Associate the degree with each vertex
-      .outerJoinVertices(gl.outDegrees) { (_, _, deg) =>
-        deg.getOrElse(0)
+    var workGraph: GraphLineage[Double, Double] =
+      Utils.trace(gl, PregelLifecycleStart()) {
+        gl
+          // Associate the degree with each vertex
+          .outerJoinVertices(gl.outDegrees) { (_, _, deg) =>
+            deg.getOrElse(0)
+          }
+          // Set the weight on the edges based on the degree
+          .mapTriplets(e => 1.0 / e.srcAttr)
+          .mapVertices { (_, _) => 1.0 / vertexCount }
+          .cache()
       }
-      // Set the weight on the edges based on the degree
-      .mapTriplets(e => 1.0 / e.srcAttr)
-      .mapVertices { (_, _) => 1.0 / vertexCount }
-      .cache()
 
     val danglingVertices = workGraph.vertices
       .minus(
@@ -52,13 +60,15 @@ object LineagePageRank extends Logging {
         .aggregate(0.0)((sum, vertexPair) => sum + vertexPair._2, _ + _)
 
       // Compute the new PageRank value of all nodes
-      workGraph = workGraph
-        .outerJoinVertices(sumOfValues)((_, _, newSumOfValues) =>
-          (1 - dampingFactor) / vertexCount +
-            dampingFactor * (newSumOfValues
-              .getOrElse(0.0) + danglingSum / vertexCount)
-        )
-        .cache()
+      workGraph = Utils.trace(workGraph, PregelIteration(iteration)) {
+        workGraph
+          .outerJoinVertices(sumOfValues)((_, _, newSumOfValues) =>
+            (1 - dampingFactor) / vertexCount +
+              dampingFactor * (newSumOfValues
+                .getOrElse(0.0) + danglingSum / vertexCount)
+          )
+          .cache()
+      }
 
       // Materialise the working graph
       val vertices = workGraph.vertices.count()
@@ -72,8 +82,10 @@ object LineagePageRank extends Logging {
       iteration += 1
     }
 
-    val newGl = workGraph.mapEdges(_ => ())
-    newGl.metrics.merge(metrics)
-    newGl
+    Utils.trace(workGraph, PregelLifecycleStop()) {
+      val newGl = workGraph.mapEdges(_ => ())
+      newGl.metrics.merge(metrics)
+      newGl
+    }
   }
 }

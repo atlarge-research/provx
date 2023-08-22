@@ -34,7 +34,12 @@ object LineageWCC {
     val ccGraph = gl.mapVertices { case (vid, _) => vid }
     val initialMessage = Long.MaxValue
     val pregelGraph =
-      LineagePregel(ccGraph, initialMessage, maxIterations, EdgeDirection.Out)(
+      LineagePregel(
+        ccGraph,
+        initialMessage,
+        maxIterations,
+        EdgeDirection.Either
+      )(
         vprog = (_, attr, msg) => math.min(attr, msg),
         sendMsg = sendMessage,
         mergeMsg = (a, b) => math.min(a, b)
