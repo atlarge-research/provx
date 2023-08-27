@@ -1,11 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import utils.{GraphalyticsOutputReader, GraphTestLoader, LocalSparkSession}
+import utils.{GraphalyticsOutputReader, GraphTestLoader}
+import utils.LocalSparkSession.withSparkSession
 
-import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
-import org.apache.spark.graphx.VertexId
 import org.apache.spark.SparkContext
+import org.apache.spark.graphx.VertexId
 import org.scalatest.funsuite.AnyFunSuite
 
 class GraphalyticsAlgorithmsTestSuite extends AnyFunSuite {

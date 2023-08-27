@@ -1,8 +1,8 @@
 package lu.magalhaes.gilles.provxlib
 package provenance.hooks
 
-import provenance.metrics.Counter
 import provenance.GraphLineage
+import provenance.metrics.Counter
 
 import scala.reflect.ClassTag
 

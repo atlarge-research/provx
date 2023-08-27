@@ -1,9 +1,21 @@
 package lu.magalhaes.gilles.provxlib
 package provenance.events
 
+import org.apache.spark.graphx.VertexId
+
 trait EventType
 
-case class Algorithm(name: String) extends EventType
+trait Algorithm extends EventType
+
+case class BFS(source: Long) extends Algorithm
+//case class Algorithm(name: String) extends EventType
+
+case class PageRank(numIter: Int, dampingFactor: Double = 0.85)
+    extends Algorithm
+case class WCC(maxIterations: Int = Int.MaxValue) extends Algorithm
+
+case class SSSP(source: VertexId) extends Algorithm
+
 case class Operation(name: String) extends EventType
 case class PregelAlgorithm() extends EventType
 

@@ -1,13 +1,9 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.events.{
-  PregelAlgorithm,
-  PregelIteration,
-  PregelLifecycleStart
-}
+import provenance.events.{PregelAlgorithm, PregelIteration, PregelLifecycleStart}
 import provenance.hooks.PregelHook
-import provenance.metrics.Gauge
+import provenance.metrics.{Gauge, ObservationSet}
 
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
@@ -32,7 +28,11 @@ object LineagePregel extends Logging {
       )
 
       var g = gl.mapVertices((vid, vdata) => vprog(vid, vdata, initialMsg))
-      ProvenanceContext.graph.add(gl, g, PregelLifecycleStart())
+      ProvenanceContext.graph.add(
+        gl,
+        g,
+        ProvenanceGraph.Edge(PregelLifecycleStart(), ObservationSet())
+      )
 
 //    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
 //      checkpointInterval, graph.vertices.sparkContext)

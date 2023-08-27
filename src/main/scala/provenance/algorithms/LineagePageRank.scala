@@ -2,13 +2,9 @@ package lu.magalhaes.gilles.provxlib
 package provenance.algorithms
 
 import provenance.{GraphLineage, Utils}
+import provenance.events.{PregelIteration, PregelLifecycleStart, PregelLifecycleStop}
 import provenance.metrics.{Gauge, ObservationSet}
 
-import lu.magalhaes.gilles.provxlib.provenance.events.{
-  PregelIteration,
-  PregelLifecycleStart,
-  PregelLifecycleStop
-}
 import org.apache.spark.graphx._
 import org.apache.spark.internal.Logging
 

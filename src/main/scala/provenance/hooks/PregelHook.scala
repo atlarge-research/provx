@@ -2,7 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package provenance.hooks
 
 import provenance.GraphLineage
-import provenance.events.{Algorithm, EventType}
+import provenance.events.{EventType, PregelAlgorithm}
 
 import scala.reflect.ClassTag
 
@@ -12,8 +12,8 @@ abstract class PregelHook(lifecycleHooks: Seq[Hook], iterationHooks: Seq[Hook])
   // TODO: this should only be invoked on pregel use
   override def shouldInvoke(event: EventType): Boolean = {
     event match {
-      case Algorithm(name) => name == "pregel"
-      case _               => false
+      case PregelAlgorithm() => true
+      case _                 => false
     }
   }
 

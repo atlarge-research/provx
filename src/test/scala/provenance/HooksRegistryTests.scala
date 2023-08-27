@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.hooks.{HooksRegistry, CounterHook}
+import provenance.hooks.{CounterHook, HooksRegistry}
 
 import org.scalatest.funsuite.AnyFunSuite
 

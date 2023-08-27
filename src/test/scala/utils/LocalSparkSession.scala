@@ -4,7 +4,6 @@ package utils
 import org.apache.spark.SparkConf
 import org.apache.spark.graphx.GraphXUtils
 import org.apache.spark.sql.SparkSession
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite}
 
 object LocalSparkSession {
   def stop(spark: SparkSession): Unit = {

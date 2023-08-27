@@ -2,6 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package provenance
 
 import provenance.events.{EventType, Operation}
+import provenance.metrics.{ObservationSet, TimeUnit}
 
 import scala.reflect.ClassTag
 
@@ -13,9 +14,17 @@ object Utils {
   )(f: => GraphLineage[VD1, ED1]): GraphLineage[VD1, ED1] =
     if (ProvenanceContext.isTracingEnabled) {
       ProvenanceContext.hooks.handlePre(event, source)
+      val startTime = System.nanoTime()
       val res = f
+      val endTime = System.nanoTime()
+      val o = ObservationSet()
+      o.add(TimeUnit("operationTime", endTime - startTime, "ns"))
       ProvenanceContext.hooks.handlePost(event, res)
-      ProvenanceContext.graph.add(source, res, event)
+      ProvenanceContext.graph.add(
+        source,
+        res,
+        ProvenanceGraph.Edge(event, o)
+      )
       val lineageGraph = if (res.captureFilter.isDefined) {
         ProvenanceContext.graph.filter(
           nodeP = res.captureFilter.get.provenanceFilter.nodePredicate,
@@ -36,7 +45,7 @@ object Utils {
 
       val queryResult =
         lineageGraph.graph.edges.count((e: ProvenanceGraph.Type#EdgeT) => {
-          e.outer.output.g == res && e.outer.event == event && res.captureFilter.get.provenanceFilter
+          e.outer.output.g == res && e.outer.edge.event == event && res.captureFilter.get.provenanceFilter
             .edgePredicate(e.outer)
         }) == 1
 //      println(
@@ -50,6 +59,7 @@ object Utils {
             case "unpersist" | "unpersistVertices" => false
             case _                                 => true
           }
+        case _ => true
       }
 
       if (!storeGraph) {

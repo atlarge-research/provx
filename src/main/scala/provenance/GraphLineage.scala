@@ -2,7 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package provenance
 
 import provenance.algorithms._
-import provenance.events.{Algorithm, EventType, Operation}
+import provenance.events._
 import provenance.metrics.ObservationSet
 import provenance.query.{CaptureFilter, DataPredicate, ProvenancePredicate}
 import provenance.storage.StorageLocation
@@ -36,34 +36,34 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
   def pageRank(
       numIter: Int,
       dampingFactor: Double = 0.85
-  ): GraphLineage[Double, Unit] = trace(Algorithm("pageRank")) {
+  ): GraphLineage[Double, Unit] = trace(PageRank(numIter, dampingFactor)) {
     LineagePageRank.run(this, numIter, dampingFactor = dampingFactor)
   }
 
   def bfs(sourceVertex: VertexId): GraphLineage[Long, ED] =
-    trace(Algorithm("bfs")) {
+    trace(BFS(sourceVertex)) {
       LineageBFS.run(this, sourceVertex)
     }
 
   def wcc(maxIterations: Int = Int.MaxValue): GraphLineage[VertexId, ED] =
-    trace(Algorithm("wcc")) {
+    trace(WCC(maxIterations)) {
       LineageWCC.run(this, maxIterations = maxIterations)
     }
 
   def sssp(source: VertexId): GraphLineage[Double, Double] =
-    trace(Algorithm("sssp")) {
+    trace(SSSP(source)) {
       LineageSSSP.run(this, source)
     }
 
   // TODO: broken
-  def cdlp(): GraphLineage[VertexId, Unit] = trace(Algorithm("cdlp")) {
-    LineageCDLP.run(this)
-  }
-
-  // TODO: broken
-  def lcc(): GraphLineage[Double, Unit] = trace(Algorithm("lcc")) {
-    LineageLCC.run(this)
-  }
+//  def cdlp(): GraphLineage[VertexId, Unit] = trace(Algorithm("cdlp")) {
+//    LineageCDLP.run(this)
+//  }
+//
+//  // TODO: broken
+//  def lcc(): GraphLineage[Double, Unit] = trace(Algorithm("lcc")) {
+//    LineageLCC.run(this)
+//  }
 
   def capture(
       provenanceFilter: ProvenancePredicate,

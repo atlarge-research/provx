@@ -1,7 +1,6 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession
 import org.scalatest.funsuite.AnyFunSuite
 
 class ProvenanceGraphTests extends AnyFunSuite {

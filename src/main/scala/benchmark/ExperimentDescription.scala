@@ -73,7 +73,7 @@ object AlgorithmSerializer {
 }
 
 object ExperimentDescriptionSerializer {
-  def serialize(d: ExperimentDescription): String = {
+  def serialize(d: ExperimentDescription): ujson.Obj = {
     ujson
       .Obj(
         "id" -> d.experimentID,
@@ -87,7 +87,6 @@ object ExperimentDescriptionSerializer {
         "storageEnabled" -> d.storageEnabled,
         "compressionEnabled" -> d.compressionEnabled
       )
-      .toString()
   }
 
   def deserialize(s: String): ExperimentDescription = {

@@ -1,24 +1,17 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.utils.{GraphUtils, TimeUtils}
 import benchmark.ExperimentParameters.{BFS, PageRank, SSSP, WCC}
-import provenance.{GraphLineage, ProvenanceContext, ProvenanceGraph}
+import benchmark.utils.{GraphUtils, TimeUtils}
+import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
 import provenance.query.ProvenancePredicate
-import provenance.storage.{
-  EmptyLocation,
-  HDFSLocation,
-  HDFSStorageHandler,
-  TextFile
-}
+import provenance.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler, TextFile}
 
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
-
-import scala.collection.immutable
 
 object Benchmark {
   import utils.CustomCLIArguments._
@@ -113,7 +106,7 @@ object Benchmark {
       }
 
       val loc = g.storageLocation
-        .getOrElse("<not stored>") match {
+        .getOrElse(EmptyLocation()) match {
         case EmptyLocation()    => "<not stored>"
         case HDFSLocation(path) => path
       }
@@ -138,18 +131,15 @@ object Benchmark {
     val sortedMetrics =
       metrics.toList.sortWith((l, r) => l("graphID").num < r("graphID").num)
 
+    val parameters = ExperimentDescriptionSerializer.serialize(description)
+    parameters("applicationId") = spark.sparkContext.applicationId
+
     val provenance = ujson.Obj(
       "inputs" -> ujson.Obj(
         "config" -> GraphUtils.configPath(pathPrefix),
         "vertices" -> GraphUtils.verticesPath(pathPrefix),
         "edges" -> GraphUtils.edgesPath(pathPrefix),
-        "parameters" -> ujson.Obj(
-          "applicationId" -> spark.sparkContext.applicationId,
-          "algorithm" -> AlgorithmSerializer.serialize(description.algorithm),
-          "graph" -> description.dataset,
-          "provenance" -> description.lineageEnabled,
-          "runNr" -> description.runNr
-        )
+        "parameters" -> parameters
       ),
       "output" -> ujson.Obj(
         "stdout" -> (description.outputDir / "stdout.log").toString,

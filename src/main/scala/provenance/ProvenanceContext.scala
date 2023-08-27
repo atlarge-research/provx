@@ -4,7 +4,6 @@ package provenance
 import provenance.hooks.HooksRegistry
 import provenance.storage.{NullStorageHandler, StorageHandler}
 
-import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 
 import java.util.concurrent.atomic.AtomicInteger

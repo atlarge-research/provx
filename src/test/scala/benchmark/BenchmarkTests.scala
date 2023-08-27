@@ -3,7 +3,6 @@ package benchmark
 
 import benchmark.configuration.BenchmarkConfig
 
-import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession
 import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -24,6 +23,7 @@ class BenchmarkTests extends AnyFunSuite {
           algorithm = ExperimentParameters.BFS(),
           lineageEnabled = true,
           compressionEnabled = false,
+          storageEnabled = true,
           runNr = 1,
           outputDir = outputDir,
           benchmarkConfig = benchmarkConfig,

@@ -1,11 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.configuration.{
-  BenchmarkConfig,
-  GraphalyticsConfiguration,
-  NotificationsConfig
-}
+import benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig}
 import benchmark.utils._
 
 import mainargs.{arg, main, ParserForClass}
@@ -94,7 +90,7 @@ object Runner {
 
       val appArgs = Array(
         "--config",
-        ExperimentDescriptionSerializer.serialize(experiment)
+        ExperimentDescriptionSerializer.serialize(experiment).toString
       )
 
       println("Running configuration:")

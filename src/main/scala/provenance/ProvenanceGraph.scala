@@ -2,21 +2,13 @@ package lu.magalhaes.gilles.provxlib
 package provenance
 
 import provenance.events._
+import provenance.metrics.{JSONSerializer, ObservationSet}
 
 import scalax.collection.{AnyGraph, OneOrMore}
 import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
-import scalax.collection.generic.{AbstractDiEdge, Edge, MultiEdge}
+import scalax.collection.generic.{AbstractDiEdge, MultiEdge, Edge => GenericEdge}
 import scalax.collection.immutable.Graph
-import scalax.collection.io.dot.{
-  DotAttr,
-  DotEdgeStmt,
-  DotGraph,
-  DotNodeStmt,
-  DotRootGraph,
-  Graph2DotExport,
-  Id,
-  NodeId
-}
+import scalax.collection.io.dot.{DotAttr, DotEdgeStmt, DotGraph, DotNodeStmt, DotRootGraph, Graph2DotExport, Id, NodeId}
 
 object ProvenanceGraph {
   type NodePredicate = Node => Boolean
@@ -31,16 +23,17 @@ object ProvenanceGraph {
   type Type = Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]
 
   case class Node(g: GraphLineage[_, _])
+  case class Edge(event: EventType, metrics: ObservationSet)
 
-  case class Relation(input: Node, output: Node, event: EventType)
+  case class Relation(input: Node, output: Node, edge: Edge)
       extends AbstractDiEdge(input, output)
       with MultiEdge {
-    override def extendKeyBy: OneOrMore[Any] = OneOrMore.one(event)
+    override def extendKeyBy: OneOrMore[Any] = OneOrMore.one(edge)
   }
 
   implicit class MyLDiEdgeInfixLabelConstructor(val e: DiEdge[Node])
       extends AnyVal {
-    def :+(label: EventType): Relation = Relation(e.source, e.target, label)
+    def :+(edge: Edge): Relation = Relation(e.source, e.target, edge)
   }
 }
 
@@ -50,9 +43,9 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
   def add(
       source: GraphLineage[_, _],
       target: GraphLineage[_, _],
-      attr: EventType
+      edge: Edge
   ): Unit = {
-    graph = graph + (Node(source) ~> Node(target) :+ attr)
+    graph = graph + (Node(source) ~> Node(target) :+ edge)
   }
 
   def toDot(): String = {
@@ -63,14 +56,14 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
     def edgeTransformer(
         innerEdge: ProvenanceGraph.Type#EdgeT
     ): Option[(DotGraph, DotEdgeStmt)] = {
-      val edge = innerEdge.outer.event.toString
-      val edgeColor = innerEdge.outer.event match {
-        case Algorithm(_)           => "darkorange"
-        case Operation(_)           => "indianred2"
-        case PregelAlgorithm()      => "green"
-        case PregelLifecycleStart() => "darkviolet"
-        case PregelIteration(_)     => "darkorchid1"
-        case _                      => "black"
+      val edge = innerEdge.outer.edge.event.toString
+      val edgeColor = innerEdge.outer.edge.event match {
+        case PageRank(_, _) | BFS(_) | SSSP(_) | WCC(_) => "darkorange"
+        case Operation(_)                               => "indianred2"
+        case PregelAlgorithm()                          => "green"
+        case PregelLifecycleStart()                     => "darkviolet"
+        case PregelIteration(_)                         => "darkorchid1"
+        case _                                          => "black"
       }
       Some(
         root,
@@ -117,7 +110,7 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
 
   def filter(nodeP: NodePredicate, edgeP: EdgePredicate): ProvenanceGraph = {
     // required for some typing business that I'm not smart enough to understand
-    implicit class ForIntelliJ[N, E <: Edge[N]](val g: Graph[N, E]) {
+    implicit class ForIntelliJ[N, E <: GenericEdge[N]](val g: Graph[N, E]) {
       def asAnyGraph: AnyGraph[N, E] = g
     }
 
@@ -141,17 +134,29 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
           "location" -> g.storageLocation.getOrElse("").toString
         )
       )
-    val edges = graph.edges.map((e: ProvenanceGraph.Type#EdgeT) =>
+
+    val edges = graph.edges.map((e: ProvenanceGraph.Type#EdgeT) => {
+      val eventType = e.outer.edge.event match {
+        case _: Algorithm           => "algorithm"
+        case Operation(_)           => "operation"
+        case PregelAlgorithm()      => "pregel"
+        case PregelLifecycleStart() => "pregelStart"
+        case PregelLifecycleStop()  => "pregelStop"
+        case PregelIteration(_)     => "pregelIteration"
+        case _                      => "<unknown>"
+      }
       ujson.Obj(
         "source" -> e.outer.input.g.id,
         "target" -> e.outer.output.g.id,
-        "relationship" -> e.outer.event.toString
+        "relationship" -> e.outer.edge.event.toString,
+        "type" -> eventType,
+        "metrics" -> JSONSerializer.serialize(e.outer.edge.metrics)
       )
-    )
+    })
     ujson
       .Obj(
-        "nodes" -> ujson.Arr(nodes),
-        "edges" -> ujson.Arr(edges)
+        "nodes" -> nodes,
+        "edges" -> edges
       )
   }
 

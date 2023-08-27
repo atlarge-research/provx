@@ -2,6 +2,7 @@ package lu.magalhaes.gilles.provxlib
 package provenance.storage
 
 import provenance.{GraphLineage, ProvenanceContext}
+import provenance.hooks.TimeHook
 
 import org.apache.spark.sql.SparkSession
 
@@ -14,7 +15,11 @@ abstract class StorageHandler {
       g: GraphLineage[V, D]
   ): StorageLocation = {
     if (ProvenanceContext.isStorageEnabled) {
-      write(spark, g)
+      val th = TimeHook("storageTime")
+      th.pre(g)
+      val res = write(spark, g)
+      th.post(g)
+      res
     } else {
       EmptyLocation()
     }
