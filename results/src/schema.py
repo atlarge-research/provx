@@ -1,44 +1,104 @@
-from typing import Optional, List
+from typing import List
 from pydantic import BaseModel
 
-class PregelIteration(BaseModel):
-    idx: int
-    messageCount: int
+class Parameters(BaseModel):
+    id: str
+    dataset: str
+    algorithm: str
+    runNr: str
+    outputDir: str
+    configPath: str
+    lineageDir: str
+    lineageEnabled: bool
+    storageEnabled: bool
+    compressionEnabled: bool
+    applicationId: str
 
-class Duration(BaseModel):
-    duration: int
+
+class Inputs(BaseModel):
+    config: str
+    vertices: str
+    edges: str
+    parameters: Parameters
+
+
+class Node(BaseModel):
+    id: int
+    location: str
+
+
+class Value1(BaseModel):
+    amount: str
     unit: str
 
-class Metadata(BaseModel):
-    iterations: Optional[List[PregelIteration]] = None
-    lineageDirectory: Optional[str] = None
+
+class Value(BaseModel):
+    type: str
+    name: str
+    value: Value1
+
+
+class Metrics(BaseModel):
+    type: str
+    values: List[List[Value]]
+
+
+class Edge(BaseModel):
+    source: int
+    target: int
+    relationship: str
+    type: str
+    metrics: Metrics
+
+
+class Graph(BaseModel):
+    nodes: List[Node]
+    edges: List[Edge]
+
+
+class IndividualItem(BaseModel):
+    graphID: int
+    size: int
+    location: str
+
+
+class Sizes(BaseModel):
+    total: int
+    individual: List[List[IndividualItem]]
+
+
+class Duration(BaseModel):
+    amount: int
+    unit: str
+
+
+class Value2(BaseModel):
+    type: str
+    name: str
+    value: str
+
+
+class Metrics1(BaseModel):
+    type: str
+    values: List[List[Value2]]
+
+
+class Metric(BaseModel):
+    graphID: int
+    metrics: Metrics1
+
+
+class Outputs(BaseModel):
+    stdout: str
+    stderr: str
+    results: str
+    graph: Graph
+    sizes: Sizes
     duration: Duration
+    # metrics: List[Metric]
+    # lineageDirectory: str
 
-class Result(BaseModel):
-    algorithm: str
-    graph: str
-    lineage: bool
-    runNr: int
-    metadata: Metadata
 
-class FullResult(BaseModel):
-    withLineage: List[Result]
-    withoutLineage: List[Result]
-
-class Size(BaseModel):
-    iteration: int
-    size: int
-
-class CheckpointSize(BaseModel):
-    lineageId: str
-    iterations: List[Size]
-
-class OutputSize(BaseModel):
-    algorithm: str
-    graph: str
-    lineage: bool
-    size: int
-
-class FullOutputSize(BaseModel):
-    withLineage: OutputSize
-    withoutLineage: OutputSize
+class Model(BaseModel):
+    inputs: Inputs
+    outputs: Outputs
