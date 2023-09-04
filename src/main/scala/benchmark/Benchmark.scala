@@ -7,7 +7,12 @@ import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
 import provenance.query.ProvenancePredicate
-import provenance.storage.{EmptyLocation, HDFSLocation, HDFSStorageHandler, TextFile}
+import provenance.storage.{
+  EmptyLocation,
+  HDFSLocation,
+  HDFSStorageHandler,
+  TextFile
+}
 
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
@@ -71,17 +76,6 @@ object Benchmark {
       s"${description.benchmarkConfig.outputPath}/experiment-${description.experimentID}/vertices.txt"
     filteredGL.vertices.saveAsTextFile(resultsPath)
 
-    val run = ujson.Obj(
-      "duration" -> ujson.Obj(
-        "amount" -> ujson.Num(elapsedTime.toDouble),
-        "unit" -> "ns"
-      )
-    )
-
-    if (description.lineageEnabled) {
-      run("lineageDirectory") = description.lineageDir
-    }
-
     val resultsSize = fileSize(spark, resultsPath)
 
     os.makeDir.all(description.outputDir)
@@ -134,6 +128,26 @@ object Benchmark {
     val parameters = ExperimentDescriptionSerializer.serialize(description)
     parameters("applicationId") = spark.sparkContext.applicationId
 
+    val outputs = ujson.Obj(
+      "stdout" -> (description.outputDir / "stdout.log").toString,
+      "stderr" -> (description.outputDir / "stderr.log").toString,
+      "results" -> resultsPath,
+      "graph" -> ProvenanceContext.graph.toJson(),
+      "sizes" -> ujson.Obj(
+        "total" -> resultsSize.toInt,
+        "individual" -> sortedSizes
+      ),
+      "duration" -> ujson.Obj(
+        "amount" -> ujson.Num(elapsedTime.toDouble),
+        "unit" -> "ns"
+      ),
+      "metrics" -> sortedMetrics
+    )
+
+    if (description.lineageEnabled) {
+      outputs("lineageDirectory") = description.lineageDir
+    }
+
     val provenance = ujson.Obj(
       "inputs" -> ujson.Obj(
         "config" -> GraphUtils.configPath(pathPrefix),
@@ -141,17 +155,7 @@ object Benchmark {
         "edges" -> GraphUtils.edgesPath(pathPrefix),
         "parameters" -> parameters
       ),
-      "output" -> ujson.Obj(
-        "stdout" -> (description.outputDir / "stdout.log").toString,
-        "stderr" -> (description.outputDir / "stderr.log").toString,
-        "results" -> resultsPath,
-        "graph" -> ProvenanceContext.graph.toJson(),
-        "sizes" -> ujson.Obj(
-          "total" -> resultsSize.toInt,
-          "individual" -> ujson.Arr(sortedSizes)
-        ),
-        "metrics" -> sortedMetrics
-      )
+      "outputs" -> outputs
     )
 
     os.write(
