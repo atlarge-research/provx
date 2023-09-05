@@ -5,6 +5,10 @@ clean:
   rm -fr plots
   mkdir plots
 
+pull:
+  mkdir -p data/das5
+  rsync -azP das:/var/scratch/gmo520/thesis/experiments data/das5
+
 sync:
   #!/usr/bin/env bash
   function dsync() {

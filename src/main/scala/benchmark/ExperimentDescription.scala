@@ -28,12 +28,8 @@ case class ExperimentDescription(
     benchmarkConfig: BenchmarkConfig,
     // Path where to storage lineage
     lineageDir: String,
-    // Lineage enabled
-    lineageEnabled: Boolean,
-    // Whether to write lineage data or not
-    storageEnabled: Boolean,
-    // Whether compression is enabled
-    compressionEnabled: Boolean
+    // Experiment setup
+    setup: String
 ) {
   override def toString(): String = {
     val sb = new StringBuilder()
@@ -43,9 +39,7 @@ case class ExperimentDescription(
     sb.append(s"Run           : ${runNr}\n")
     sb.append(s"Output dir    : ${outputDir}\n")
     sb.append(s"Lineage dir   : ${lineageDir}\n")
-    sb.append(s"Lineage on    : ${lineageEnabled}\n")
-    sb.append(s"Storage on    : ${storageEnabled}\n")
-    sb.append(s"Compression on: ${compressionEnabled}\n")
+    sb.append(s"Setup         : ${setup}\n")
     sb.toString()
   }
 }
@@ -83,9 +77,7 @@ object ExperimentDescriptionSerializer {
         "outputDir" -> d.outputDir.toString(),
         "configPath" -> d.benchmarkConfig.path,
         "lineageDir" -> d.lineageDir,
-        "lineageEnabled" -> d.lineageEnabled,
-        "storageEnabled" -> d.storageEnabled,
-        "compressionEnabled" -> d.compressionEnabled
+        "setup" -> d.setup
       )
   }
 
@@ -101,9 +93,7 @@ object ExperimentDescriptionSerializer {
         data("configPath").str
       ),
       lineageDir = data("lineageDir").str,
-      lineageEnabled = data("lineageEnabled").bool,
-      storageEnabled = data("storageEnabled").bool,
-      compressionEnabled = data("compressionEnabled").bool
+      setup = data("setup").str
     )
   }
 }

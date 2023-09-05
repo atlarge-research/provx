@@ -136,8 +136,8 @@ def overhead_plot(raw_data, configuration, metric="duration"):
     # ax.set_xticklabels([algorithm_names_short[a.lower()] for a in algorithms], rotation=45, ha='right')
     ax.set_xticklabels([algorithm_names_short[a.lower()] for a in algorithms])
     #ax.set_xticklabels(algorithms, rotation=45, ha='right')
-    if metric != "total_size":
-        ax.yaxis.set_major_formatter(ticker.PercentFormatter())
+    # if metric != "total_size":
+    ax.yaxis.set_major_formatter(ticker.PercentFormatter())
     # ax.legend()
 
     pos = ax.get_position()

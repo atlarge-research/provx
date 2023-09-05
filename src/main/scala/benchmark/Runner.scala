@@ -1,7 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.configuration.{BenchmarkConfig, GraphalyticsConfiguration, NotificationsConfig}
+import benchmark.configuration.{
+  BenchmarkConfig,
+  GraphalyticsConfiguration,
+  NotificationsConfig
+}
 import benchmark.utils._
 
 import mainargs.{arg, main, ParserForClass}
@@ -78,8 +82,7 @@ object Runner {
             s"id=${experiment.experimentID}",
             s"algorithm=${experiment.algorithm}",
             s"graph=${experiment.dataset}",
-            s"lineage=${experiment.lineageEnabled}",
-            s"compression=${experiment.compressionEnabled}",
+            s"setup=${experiment.setup}",
             s"run=${experiment.runNr}"
           ) mkString " ") + Console.RESET
       )
@@ -131,10 +134,9 @@ object Runner {
           println(
             Console.GREEN + f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}" + Console.RESET
           )
-          val lineageStatus = if (experiment.lineageEnabled) 1 else 0
           PushoverNotifier.notify(
             new NotificationsConfig(args.benchmarkConfig.getPath),
-            s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${lineageStatus}/${experiment.runNr}",
+            s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.runNr}",
             f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}"
           )
         }
@@ -151,7 +153,6 @@ object Runner {
       outputDir: os.Path,
       benchmarkConfig: BenchmarkConfig
   ): Array[ExperimentDescription] = {
-    val tracingEnabled = List(true, false)
     val runs = Range.inclusive(1, benchmarkConfig.repetitions).toList
 
     benchmarkConfig.graphs
@@ -167,34 +168,17 @@ object Runner {
           .map(algorithm => (dataset, algorithm))
       })
       .flatMap(v => {
-        tracingEnabled.flatMap(l => {
-          if (l) {
-            // If lineage is enabled, run experiment with compression turned on/off
-            Seq(
-              // Storage on, compression on
-              (v._1, v._2, true, true, true),
-              // Storage on, compression off
-              (v._1, v._2, true, true, false),
-              // Storage off, comopression off
-              (v._1, v._2, true, false, false)
-            )
-          } else {
-            // If tracing is disabled, just run one experiment
-            Seq((v._1, v._2, false, false, false))
-          }
-        })
+        ExperimentSetup.values.map(es => (v._1, v._2, es.toString))
       })
-      .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, v._5, r)))
+      .flatMap(v => runs.map(r => (v._1, v._2, v._3, r)))
       .map(v => {
         val experimentID = UUID.randomUUID()
         ExperimentDescription(
           experimentID = experimentID.toString,
           dataset = v._1,
           algorithm = AlgorithmSerializer.deserialize(v._2.toUpperCase),
-          lineageEnabled = v._3,
-          storageEnabled = v._4,
-          compressionEnabled = v._5,
-          runNr = v._6,
+          setup = v._3,
+          runNr = v._4,
           outputDir = outputDir / s"experiment-${experimentID}",
           benchmarkConfig = benchmarkConfig,
           lineageDir =

@@ -41,13 +41,35 @@ object Benchmark {
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
-    ProvenanceContext.tracingStatus.set(description.lineageEnabled)
-    ProvenanceContext.storageStatus.set(description.storageEnabled)
+    val expSetup = ExperimentSetup.values.find(_.toString == description.setup)
+    if (expSetup.isEmpty) {
+      println("Unknown experiment setup! Quitting...")
+      return ((), 0)
+    }
+
+    val tracingEnabled = expSetup.get match {
+      case ExperimentSetup.Baseline => false
+      case _                        => true
+    }
+
+    val storageEnabled = expSetup.get match {
+      case ExperimentSetup.Baseline => false
+      case _                        => true
+    }
+
+    ProvenanceContext.tracingStatus.set(tracingEnabled)
+    ProvenanceContext.storageStatus.set(storageEnabled)
+
+    val compressionEnabled = expSetup.get match {
+      case ExperimentSetup.Compression => true
+      case ExperimentSetup.Combined    => true
+      case _                           => false
+    }
 
     ProvenanceContext.setStorageHandler(
       new HDFSStorageHandler(
         description.lineageDir,
-        format = TextFile(description.compressionEnabled)
+        format = TextFile(compressionEnabled)
       )
     )
 
@@ -144,7 +166,7 @@ object Benchmark {
       "metrics" -> sortedMetrics
     )
 
-    if (description.lineageEnabled) {
+    if (description.setup != ExperimentSetup.Baseline.toString) {
       outputs("lineageDirectory") = description.lineageDir
     }
 
@@ -183,7 +205,7 @@ object Benchmark {
     val spark = SparkSession
       .builder()
       .appName(
-        s"ProvX ${description.algorithm}/${description.dataset}/${description.lineageEnabled}/${description.runNr} benchmark"
+        s"ProvX ${description.algorithm}/${description.dataset}/${description.setup}/${description.runNr} benchmark"
       )
       .getOrCreate()
 
