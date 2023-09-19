@@ -68,16 +68,23 @@ object Utils {
 
       // Save graph when capture query results
       if (queryResult) {
+        // matched the graph from provenance perspective, but still need to filter it here and then save
+
+        val filteredDataGraph = res.graph.subgraph(
+          epred = res.captureFilter.get.dataFilter.edgePredicate,
+          vpred = res.captureFilter.get.dataFilter.nodePredicate
+        )
+
+        val filteredDataGraphGL = GraphLineage(filteredDataGraph)
+
         if (ProvenanceContext.sparkContext.isDefined) {
           println("SparkSession defined in ProvenanceContext")
           val storageLoc = ProvenanceContext.storageHandler.save(
             ProvenanceContext.sparkContext.get,
-            res
+            filteredDataGraphGL
           )
           res.setStorageLocation(storageLoc)
         }
-//        val storageLoc = ProvenanceContext.storageHandler.save(res)
-//        res.setStorageLocation(storageLoc)
       }
       res
     } else {

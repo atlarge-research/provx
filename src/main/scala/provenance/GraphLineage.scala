@@ -67,7 +67,7 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
 
   def capture(
       provenanceFilter: ProvenancePredicate,
-      dataFilter: DataPredicate[VD, ED] = DataPredicate()
+      dataFilter: DataPredicate = DataPredicate()
   ): GraphLineage[VD, ED] = {
     val captureFilter = CaptureFilter(
       dataFilter = dataFilter,

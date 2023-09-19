@@ -6,7 +6,7 @@ import benchmark.utils.{GraphUtils, TimeUtils}
 import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
-import provenance.query.ProvenancePredicate
+import provenance.query.{DataPredicate, ProvenancePredicate}
 import provenance.storage.{
   EmptyLocation,
   HDFSLocation,
@@ -14,9 +14,18 @@ import provenance.storage.{
   TextFile
 }
 
+import lu.magalhaes.gilles.provxlib.provenance.ProvenanceGraph.Relation
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.graphx.{EdgeTriplet, VertexId}
 import org.apache.spark.sql.SparkSession
+import provenance.events.{
+  Operation,
+  BFS => ETBFS,
+  PageRank => ETPageRank,
+  SSSP => ETSSSP,
+  WCC => ETWCC
+}
 
 object Benchmark {
   import utils.CustomCLIArguments._
@@ -54,6 +63,7 @@ object Benchmark {
 
     val storageEnabled = expSetup.get match {
       case ExperimentSetup.Baseline => false
+      case ExperimentSetup.Tracing  => false
       case _                        => true
     }
 
@@ -62,8 +72,8 @@ object Benchmark {
 
     val compressionEnabled = expSetup.get match {
       case ExperimentSetup.Compression => true
-      case ExperimentSetup.Combined    => true
-      case _                           => false
+//      case ExperimentSetup.Combined    => true
+      case _ => false
     }
 
     ProvenanceContext.setStorageHandler(
@@ -73,10 +83,74 @@ object Benchmark {
       )
     )
 
+//    val nodePredicate = expSetup.get match {
+//      case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
+//        description.algorithm match {
+//          case BFS() =>
+//            (node: ProvenanceGraph.Node) => {
+//              node.
+//              true
+//            }
+//          case PageRank() => ???
+//          case SSSP()     => ???
+//          case WCC()      => ???
+//          case _          => ???
+//        }
+//      case _ => ProvenanceGraph.allNodes
+//    }
+
+    val dataNodeFilter = expSetup.get match {
+//      case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
+      case ExperimentSetup.SmartPruning =>
+        description.algorithm match {
+          case WCC() | BFS() =>
+            (_: VertexId, value: Any) => {
+              value.asInstanceOf[Long] != Long.MaxValue
+            }
+          case PageRank() =>
+            (_: VertexId, _: Any) => {
+              // TODO: figure out how to filter PageRank
+              true
+            }
+          case SSSP() =>
+            (_: VertexId, value: Any) => {
+              value.asInstanceOf[Double] != Double.PositiveInfinity
+            }
+          case _ =>
+            throw new NotImplementedError("unknown graph algorithm")
+        }
+      case _ =>
+        (_: VertexId, _: Any) => true
+    }
+
+    val provenanceEdgeFilter = expSetup.get match {
+      case ExperimentSetup.AlgorithmOpOnly =>
+        (r: ProvenanceGraph.Relation) => {
+          r.edge.event match {
+            case ETPageRank(_, _) | ETBFS(_) | ETSSSP(_) | ETWCC(_) => true
+            case _                                                  => false
+          }
+        }
+      case ExperimentSetup.JoinVerticesOpOnly =>
+        (r: ProvenanceGraph.Relation) => {
+          r.edge.event match {
+            case Operation("mapVertices") => true
+            case _                        => false
+          }
+        }
+      case _ =>
+        (_: ProvenanceGraph.Relation) => {
+          true
+        }
+    }
+
     val filteredGL = gl.capture(
       provenanceFilter = ProvenancePredicate(
         nodePredicate = ProvenanceGraph.allNodes,
-        edgePredicate = ProvenanceGraph.allEdges
+        edgePredicate = provenanceEdgeFilter
+      ),
+      dataFilter = DataPredicate(
+        nodePredicate = dataNodeFilter
       )
     )
 
@@ -149,6 +223,8 @@ object Benchmark {
 
     val parameters = ExperimentDescriptionSerializer.serialize(description)
     parameters("applicationId") = spark.sparkContext.applicationId
+    parameters("tracingEnabled") = tracingEnabled
+    parameters("storageEnabled") = storageEnabled
 
     val outputs = ujson.Obj(
       "stdout" -> (description.outputDir / "stdout.log").toString,
