@@ -6,9 +6,22 @@ import provenance.metrics.{JSONSerializer, ObservationSet}
 
 import scalax.collection.{AnyGraph, OneOrMore}
 import scalax.collection.edges.{DiEdge, DiEdgeImplicits}
-import scalax.collection.generic.{AbstractDiEdge, MultiEdge, Edge => GenericEdge}
+import scalax.collection.generic.{
+  AbstractDiEdge,
+  MultiEdge,
+  Edge => GenericEdge
+}
 import scalax.collection.immutable.Graph
-import scalax.collection.io.dot.{DotAttr, DotEdgeStmt, DotGraph, DotNodeStmt, DotRootGraph, Graph2DotExport, Id, NodeId}
+import scalax.collection.io.dot.{
+  DotAttr,
+  DotEdgeStmt,
+  DotGraph,
+  DotNodeStmt,
+  DotRootGraph,
+  Graph2DotExport,
+  Id,
+  NodeId
+}
 
 object ProvenanceGraph {
   type NodePredicate = Node => Boolean
@@ -22,7 +35,7 @@ object ProvenanceGraph {
 
   type Type = Graph[ProvenanceGraph.Node, ProvenanceGraph.Relation]
 
-  case class Node(g: GraphLineage[_, _])
+  case class Node(g: ProvenanceGraphNode)
   case class Edge(event: EventType, metrics: ObservationSet)
 
   case class Relation(input: Node, output: Node, edge: Edge)
@@ -41,8 +54,8 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
   import ProvenanceGraph._
 
   def add(
-      source: GraphLineage[_, _],
-      target: GraphLineage[_, _],
+      source: ProvenanceGraphNode,
+      target: ProvenanceGraphNode,
       edge: Edge
   ): Unit = {
     graph = graph + (Node(source) ~> Node(target) :+ edge)
@@ -128,7 +141,7 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
       .flatMap((e: ProvenanceGraph.Type#EdgeT) =>
         Seq(e.outer.input.g, e.outer.output.g)
       )
-      .map((g: GraphLineage[_, _]) =>
+      .map((g: ProvenanceGraphNode) =>
         ujson.Obj(
           "id" -> g.id,
           "location" -> g.storageLocation.getOrElse("").toString
@@ -160,7 +173,7 @@ class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
       )
   }
 
-  def byId(id: Long): Option[GraphLineage[_, _]] = {
+  def byId(id: Long): Option[ProvenanceGraphNode] = {
     graph.nodes
       .find((node: ProvenanceGraph.Type#NodeT) => {
         node.outer.g.id == id

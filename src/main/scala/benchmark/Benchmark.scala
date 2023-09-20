@@ -3,7 +3,7 @@ package benchmark
 
 import benchmark.ExperimentParameters.{BFS, PageRank, SSSP, WCC}
 import benchmark.utils.{GraphUtils, TimeUtils}
-import provenance.{ProvenanceContext, ProvenanceGraph}
+import provenance.{GraphLineage, ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
 import provenance.query.{DataPredicate, ProvenancePredicate}
@@ -26,6 +26,9 @@ import provenance.events.{
   SSSP => ETSSSP,
   WCC => ETWCC
 }
+
+import lu.magalhaes.gilles.provxlib.benchmark.ExperimentSetup.ExperimentSetup
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphalyticsConfiguration
 
 object Benchmark {
   import utils.CustomCLIArguments._
@@ -56,25 +59,11 @@ object Benchmark {
       return ((), 0)
     }
 
-    val tracingEnabled = expSetup.get match {
-      case ExperimentSetup.Baseline => false
-      case _                        => true
-    }
-
-    val storageEnabled = expSetup.get match {
-      case ExperimentSetup.Baseline => false
-      case ExperimentSetup.Tracing  => false
-      case _                        => true
-    }
+    val (tracingEnabled, storageEnabled, compressionEnabled) =
+      computeFlags(expSetup.get)
 
     ProvenanceContext.tracingStatus.set(tracingEnabled)
     ProvenanceContext.storageStatus.set(storageEnabled)
-
-    val compressionEnabled = expSetup.get match {
-      case ExperimentSetup.Compression => true
-//      case ExperimentSetup.Combined    => true
-      case _ => false
-    }
 
     ProvenanceContext.setStorageHandler(
       new HDFSStorageHandler(
@@ -83,74 +72,13 @@ object Benchmark {
       )
     )
 
-//    val nodePredicate = expSetup.get match {
-//      case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
-//        description.algorithm match {
-//          case BFS() =>
-//            (node: ProvenanceGraph.Node) => {
-//              node.
-//              true
-//            }
-//          case PageRank() => ???
-//          case SSSP()     => ???
-//          case WCC()      => ???
-//          case _          => ???
-//        }
-//      case _ => ProvenanceGraph.allNodes
-//    }
-
-    val dataNodeFilter = expSetup.get match {
-//      case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
-      case ExperimentSetup.SmartPruning =>
-        description.algorithm match {
-          case WCC() | BFS() =>
-            (_: VertexId, value: Any) => {
-              value.asInstanceOf[Long] != Long.MaxValue
-            }
-          case PageRank() =>
-            (_: VertexId, _: Any) => {
-              // TODO: figure out how to filter PageRank
-              true
-            }
-          case SSSP() =>
-            (_: VertexId, value: Any) => {
-              value.asInstanceOf[Double] != Double.PositiveInfinity
-            }
-          case _ =>
-            throw new NotImplementedError("unknown graph algorithm")
-        }
-      case _ =>
-        (_: VertexId, _: Any) => true
-    }
-
-    val provenanceEdgeFilter = expSetup.get match {
-      case ExperimentSetup.AlgorithmOpOnly =>
-        (r: ProvenanceGraph.Relation) => {
-          r.edge.event match {
-            case ETPageRank(_, _) | ETBFS(_) | ETSSSP(_) | ETWCC(_) => true
-            case _                                                  => false
-          }
-        }
-      case ExperimentSetup.JoinVerticesOpOnly =>
-        (r: ProvenanceGraph.Relation) => {
-          r.edge.event match {
-            case Operation("mapVertices") => true
-            case _                        => false
-          }
-        }
-      case _ =>
-        (_: ProvenanceGraph.Relation) => {
-          true
-        }
-    }
-
     val filteredGL = gl.capture(
       provenanceFilter = ProvenancePredicate(
         nodePredicate = ProvenanceGraph.allNodes,
-        edgePredicate = provenanceEdgeFilter
+        edgePredicate = provenanceFilter(expSetup.get)
       ),
       dataFilter = DataPredicate(
-        nodePredicate = dataNodeFilter
+        nodePredicate = dataFilter(expSetup.get, description.algorithm)
       )
     )
 
@@ -265,6 +193,79 @@ object Benchmark {
 
     // Clean up lineage folder after being done with it
     fs.delete(lineagePath, true)
+  }
+
+  def computeFlags(expSetup: ExperimentSetup): (Boolean, Boolean, Boolean) = {
+    val tracingEnabled = expSetup match {
+      case ExperimentSetup.Baseline => false
+      case _                        => true
+    }
+
+    val storageEnabled = expSetup match {
+      case ExperimentSetup.Baseline => false
+      case ExperimentSetup.Tracing  => false
+      case _                        => true
+    }
+
+    val compressionFlag = expSetup match {
+      case ExperimentSetup.Compression => true
+      case ExperimentSetup.Combined    => true
+      case _                           => false
+    }
+
+    (tracingEnabled, storageEnabled, compressionFlag)
+  }
+
+  def dataFilter(
+      experimentSetup: ExperimentSetup,
+      algorithm: ExperimentParameters.Algorithm
+  ): (VertexId, Any) => Boolean = {
+    experimentSetup match {
+      case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
+        algorithm match {
+          case WCC() | BFS() =>
+            (_: VertexId, value: Any) => {
+              value.asInstanceOf[Long] != Long.MaxValue
+            }
+          case PageRank() =>
+            (_: VertexId, _: Any) => {
+              // TODO: figure out how to filter PageRank
+              // TODO: get previous generation and compare if change is more than a certain delta
+              true
+            }
+          case SSSP() =>
+            (_: VertexId, value: Any) => {
+              value.asInstanceOf[Double] != Double.PositiveInfinity
+            }
+          case _ =>
+            throw new NotImplementedError("unknown graph algorithm")
+        }
+      case _ =>
+        (_: VertexId, _: Any) => true
+    }
+  }
+
+  def provenanceFilter(expSetup: ExperimentSetup): Relation => Boolean = {
+    expSetup match {
+      case ExperimentSetup.AlgorithmOpOnly | ExperimentSetup.Combined =>
+        (r: ProvenanceGraph.Relation) => {
+          r.edge.event match {
+            case ETPageRank(_, _) | ETBFS(_) | ETSSSP(_) | ETWCC(_) => true
+            case _                                                  => false
+          }
+        }
+      case ExperimentSetup.JoinVerticesOpOnly =>
+        (r: ProvenanceGraph.Relation) => {
+          r.edge.event match {
+            case Operation("joinVertices") => true
+            case _                         => false
+          }
+        }
+      case _ =>
+        (_: ProvenanceGraph.Relation) => {
+          true
+        }
+    }
   }
 
   def fileSize(sparkSession: SparkSession, path: String): Long = {

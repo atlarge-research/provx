@@ -5,13 +5,14 @@ class Parameters(BaseModel):
     id: str
     dataset: str
     algorithm: str
-    runNr: str
+    runNr: int
     outputDir: str
     configPath: str
     lineageDir: str
-    lineageEnabled: bool
+    setup: str
+    tracingEnabled: bool
     storageEnabled: bool
-    compressionEnabled: bool
+    # compressionEnabled: bool
     applicationId: str
 
 
@@ -64,7 +65,7 @@ class IndividualItem(BaseModel):
 
 class Sizes(BaseModel):
     total: int
-    individual: List[List[IndividualItem]]
+    individual: List[IndividualItem]
 
 
 class Duration(BaseModel):

@@ -16,17 +16,11 @@ import scala.reflect.ClassTag
 
 class GraphLineage[VD: ClassTag, ED: ClassTag](
     val graph: Graph[VD, ED],
-    val metrics: ObservationSet = ObservationSet(),
+    override val metrics: ObservationSet = ObservationSet(),
     val captureFilter: Option[CaptureFilter] = None
-) {
+) extends ProvenanceGraphNode {
 
   val id: Int = ProvenanceContext.newGLId(this)
-
-  var storageLocation: Option[StorageLocation] = None
-
-  def setStorageLocation(sl: StorageLocation): Unit = {
-    storageLocation = Some(sl)
-  }
 
   def withLineage(sparkSession: SparkSession): GraphLineage[VD, ED] = {
     ProvenanceContext.sparkContext = Some(sparkSession)

@@ -17,7 +17,7 @@ object ExperimentSetup extends Enumeration {
   // Only joinVertices operation
   JoinVerticesOpOnly,
   // Combined joinVertices, smart-pruning and compression
-//  Combined,
+  Combined,
   // Baseline (no tracing, no storage, nothing)
   Baseline = Value
 }
