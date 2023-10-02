@@ -1,9 +1,10 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.ExperimentParameters.{BFS, PageRank, SSSP, WCC}
+import benchmark.ExperimentParameters.{BFS, LCC, PageRank, SSSP, WCC}
 import benchmark.utils.{GraphUtils, TimeUtils}
-import provenance.{GraphLineage, ProvenanceContext, ProvenanceGraph}
+import benchmark.ExperimentSetup.ExperimentSetup
+import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
 import provenance.query.{DataPredicate, ProvenancePredicate}
@@ -13,12 +14,7 @@ import provenance.storage.{
   HDFSStorageHandler,
   TextFile
 }
-
-import lu.magalhaes.gilles.provxlib.provenance.ProvenanceGraph.Relation
-import mainargs.{arg, main, ParserForClass}
-import org.apache.hadoop.fs.Path
-import org.apache.spark.graphx.{EdgeTriplet, VertexId}
-import org.apache.spark.sql.SparkSession
+import provenance.ProvenanceGraph.Relation
 import provenance.events.{
   Operation,
   BFS => ETBFS,
@@ -27,8 +23,10 @@ import provenance.events.{
   WCC => ETWCC
 }
 
-import lu.magalhaes.gilles.provxlib.benchmark.ExperimentSetup.ExperimentSetup
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphalyticsConfiguration
+import mainargs.{arg, main, ParserForClass}
+import org.apache.hadoop.fs.Path
+import org.apache.spark.graphx.VertexId
+import org.apache.spark.sql.SparkSession
 
 object Benchmark {
   import utils.CustomCLIArguments._
@@ -43,8 +41,12 @@ object Benchmark {
     val description = args.description
     print(description)
 
+    val provenanceDir = description.outputDir / "provenance"
+    os.makeDir.all(provenanceDir)
+
     val pathPrefix =
       s"${description.benchmarkConfig.datasetPath}/${description.dataset}"
+
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage(spark)
 
@@ -62,6 +64,21 @@ object Benchmark {
     val (tracingEnabled, storageEnabled, compressionEnabled) =
       computeFlags(expSetup.get)
 
+    val parameters = ExperimentDescriptionSerializer.serialize(description)
+    parameters("applicationId") = spark.sparkContext.applicationId
+    parameters("tracingEnabled") = tracingEnabled
+    parameters("storageEnabled") = storageEnabled
+
+    val inputs = ujson.Obj(
+      "config" -> GraphUtils.configPath(pathPrefix),
+      "vertices" -> GraphUtils.verticesPath(pathPrefix),
+      "edges" -> GraphUtils.edgesPath(pathPrefix),
+      "parameters" -> parameters
+    )
+
+    os.write(provenanceDir / "inputs.json", inputs)
+
+    // Setup provenance configuration
     ProvenanceContext.tracingStatus.set(tracingEnabled)
     ProvenanceContext.storageStatus.set(storageEnabled)
 
@@ -82,6 +99,7 @@ object Benchmark {
       )
     )
 
+    // Run algorithm
     val (_, elapsedTime) = TimeUtils.timed {
       description.algorithm match {
         case BFS() => filteredGL.bfs(config.bfsSourceVertex())
@@ -89,7 +107,10 @@ object Benchmark {
           filteredGL.pageRank(numIter = config.pageRankIterations())
         case SSSP() => filteredGL.sssp(config.ssspSourceVertex())
         case WCC()  => filteredGL.wcc()
-        // case "lcc" => gl.lcc()
+//        case LCC() => {
+//          println("Running LCC from Benchmark")
+//          gl.lcc()
+//        }
         // case "cdlp" => Some(gl.cdlp())
         case _ => throw new NotImplementedError("unknown graph algorithm")
       }
@@ -101,8 +122,6 @@ object Benchmark {
     filteredGL.vertices.saveAsTextFile(resultsPath)
 
     val resultsSize = fileSize(spark, resultsPath)
-
-    os.makeDir.all(description.outputDir)
 
     val dataGraphs = ProvenanceContext.graph.graph.nodes
       .filter((n: ProvenanceGraph.Type#NodeT) =>
@@ -149,11 +168,6 @@ object Benchmark {
     val sortedMetrics =
       metrics.toList.sortWith((l, r) => l("graphID").num < r("graphID").num)
 
-    val parameters = ExperimentDescriptionSerializer.serialize(description)
-    parameters("applicationId") = spark.sparkContext.applicationId
-    parameters("tracingEnabled") = tracingEnabled
-    parameters("storageEnabled") = storageEnabled
-
     val outputs = ujson.Obj(
       "stdout" -> (description.outputDir / "stdout.log").toString,
       "stderr" -> (description.outputDir / "stderr.log").toString,
@@ -174,22 +188,12 @@ object Benchmark {
       outputs("lineageDirectory") = description.lineageDir
     }
 
-    val provenance = ujson.Obj(
-      "inputs" -> ujson.Obj(
-        "config" -> GraphUtils.configPath(pathPrefix),
-        "vertices" -> GraphUtils.verticesPath(pathPrefix),
-        "edges" -> GraphUtils.edgesPath(pathPrefix),
-        "parameters" -> parameters
-      ),
-      "outputs" -> outputs
-    )
+    os.write(provenanceDir / "outputs.json", outputs)
 
     os.write(
       description.outputDir / "graph.dot",
       ProvenanceContext.graph.toDot()
     )
-
-    os.write(description.outputDir / "provenance.json", provenance)
 
     // Clean up lineage folder after being done with it
     fs.delete(lineagePath, true)

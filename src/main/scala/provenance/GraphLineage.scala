@@ -55,9 +55,9 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
 //  }
 //
 //  // TODO: broken
-//  def lcc(): GraphLineage[Double, Unit] = trace(Algorithm("lcc")) {
-//    LineageLCC.run(this)
-//  }
+  def lcc(): GraphLineage[Double, Unit] = trace(LCC()) {
+    LineageLCC.run(this)
+  }
 
   def capture(
       provenanceFilter: ProvenancePredicate,
@@ -137,6 +137,15 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
         captureFilter = captureFilter
       )
     }
+
+  def removeSelfEdges(): GraphLineage[VD, ED] = {
+    trace(Operation("removeSelfEdges")) {
+      new GraphLineage(
+        graph.subgraph(epred = e => e.srcId != e.dstId),
+        captureFilter = captureFilter
+      )
+    }
+  }
 
   def convertToCanonicalEdges(
       mergeFunc: (ED, ED) => ED = (e1, e2) => e1

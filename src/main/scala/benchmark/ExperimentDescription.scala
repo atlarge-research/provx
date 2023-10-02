@@ -11,6 +11,7 @@ object ExperimentParameters {
   case class PageRank() extends Algorithm
   case class SSSP() extends Algorithm
   case class WCC() extends Algorithm
+  case class LCC() extends Algorithm
 }
 
 case class ExperimentDescription(
@@ -51,6 +52,7 @@ object AlgorithmSerializer {
       case ExperimentParameters.PageRank() => "PR"
       case ExperimentParameters.SSSP()     => "SSSP"
       case ExperimentParameters.WCC()      => "WCC"
+      case ExperimentParameters.LCC()      => "LCC"
       case _                               => throw new NotImplementedError("unknown graph algorithm")
     }
   }
@@ -61,6 +63,7 @@ object AlgorithmSerializer {
       case "PR"   => ExperimentParameters.PageRank()
       case "SSSP" => ExperimentParameters.SSSP()
       case "WCC"  => ExperimentParameters.WCC()
+      case "LCC"  => ExperimentParameters.LCC()
       case _      => throw new NotImplementedError("unknown graph algorithm")
     }
   }

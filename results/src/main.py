@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+import matplotlib
 
 from config import plots_dir, results_dir
 
@@ -8,6 +9,14 @@ from pathlib import Path
 from schema import Model
 import json
 import numpy as np
+
+import warnings
+
+warnings.filterwarnings('error')
+
+REMOVE_LEGEND = True
+#bar_colors = list(matplotlib.colormaps.get_cmap("tab20").colors)
+bar_colors = matplotlib.colormaps.get_cmap("tab20")
 
 algorithm_names = {
     "pr": "PageRank",
@@ -58,13 +67,19 @@ def format_filesize(x, pos):
     return f"{x:.2f} {size_units[unit_index]}"
 
 
-def values_plot(raw_data, configuration, output_dir: Path, metric="duration"):
+def values_plot(raw_data, configuration, output_dir: Path, metric="duration", export_legend=False):
     baseline = raw_data["baseline"]
     c = raw_data[configuration]
     data = []
+    max_metric_value = 0
     for (algorithm, dataset) in baseline.keys():
+        if (algorithm, dataset) not in c:
+            continue
         comparison_runs = c[(algorithm, dataset)]
         values = [m[metric] for m in comparison_runs]
+        for v in values:
+            if v > max_metric_value:
+                max_metric_value = v
         data.append((algorithm, dataset, np.mean(values), np.std(values)))
 
     algorithms = sorted(list(set([entry[0] for entry in data])))
@@ -84,7 +99,7 @@ def values_plot(raw_data, configuration, output_dir: Path, metric="duration"):
         errors = [next((entry[3] for entry in data if entry[0] == algorithm and entry[1] == dataset), 0)
                  for algorithm in algorithms]
         positions = [i + idx * bar_width for i in range(num_algorithms)]
-        ax.bar(positions, sizes, yerr=errors, width=bar_width, label=dataset, capsize=2, align='center')
+        ax.bar(positions, sizes, yerr=errors, width=bar_width, label=dataset, capsize=2, align='center', color=bar_colors(((7 * idx) % 19) / 19))
 
     # ax.set_title('Execution overhead of lineage storage' + (" (single iteration)" if single else ""))
     ax.set_title(f"{metric} values for {configuration}")
@@ -94,7 +109,7 @@ def values_plot(raw_data, configuration, output_dir: Path, metric="duration"):
 
     if metric == "duration":
         y_min = 0
-        y_max = 300
+        y_max = max_metric_value
 
         num_ticks = 10  # or any desired number of ticks
         y_ticks = np.linspace(y_min, y_max, num_ticks)
@@ -102,7 +117,8 @@ def values_plot(raw_data, configuration, output_dir: Path, metric="duration"):
         ax.yaxis.set_major_formatter(FuncFormatter(format_seconds))
     elif metric == "total_size":
         y_min = 0
-        y_max = 2**29
+        y_max = max_metric_value
+        # y_max = 2**29
 
         num_ticks = 10  # or any desired number of ticks
         y_ticks = np.linspace(y_min, y_max, num_ticks)
@@ -111,21 +127,51 @@ def values_plot(raw_data, configuration, output_dir: Path, metric="duration"):
 
     pos = ax.get_position()
     ax.set_position([pos.x0, pos.y0, pos.width * 0.9, pos.height])
-    ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
+    original_legend = ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
 
     plots_format = "pdf"
+
+    if export_legend:
+        legend = ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5), ncols=5) #num_datasets)
+        fig  = legend.figure
+        fig.canvas.draw()
+        bbox  = legend.get_window_extent()
+        bbox = bbox.from_extents(*(bbox.extents + np.array([-5,-5,5,5])))
+        bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
+        fig.savefig(output_dir.parent / f"legend.{plots_format}", dpi="figure", bbox_inches=bbox)
+        legend.remove()
+
+    if REMOVE_LEGEND:
+        original_legend.remove()
+
     filename = f"values_{configuration}_{metric}"
-    plt.savefig(output_dir / f"{filename}.{plots_format}", dpi=600, bbox_inches='tight')
+    if not export_legend:
+        plt.savefig(output_dir / f"{filename}.{plots_format}", dpi=600, bbox_inches='tight')
     plt.close()
 
-def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration"):
+
+def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration", with_legend=False):
+    compared_to = "baseline"
     baseline = raw_data["baseline"]
+    if metric == "total_size":
+        compared_to = "storage"
+        if configuration != "storage":
+            baseline = raw_data["storage"]
+
     c = raw_data[configuration]
     data = []
     for (algorithm, dataset), base in baseline.items():
+        if (algorithm, dataset) not in c:
+            continue
         comparison_runs = c[(algorithm, dataset)]
         values = [m[metric] for m in comparison_runs]
         mean_baseline = np.mean([b[metric] for b in base])
+        if mean_baseline == 0:
+            continue
+        try:
+            np.mean(values) / mean_baseline
+        except RuntimeWarning:
+            breakpoint()
         mean = np.mean(values) / mean_baseline
         std = np.std(values) / mean_baseline
         if metric == "duration":
@@ -152,17 +198,18 @@ def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration"):
     #     positions = [i + idx * bar_width for i in range(num_datasets)]
     #     ax.bar(positions, sizes, yerr=errors, width=bar_width, label=algorithm_names_short[algorithm], capsize=2, align='center')
 
+
     for idx, dataset in enumerate(datasets):
         sizes = [next((entry[2] for entry in data if entry[0] == algorithm and entry[1] == dataset), 0)
                  for algorithm in algorithms]
         errors = [next((entry[3] for entry in data if entry[0] == algorithm and entry[1] == dataset), 0)
                  for algorithm in algorithms]
         positions = [i + idx * bar_width for i in range(num_algorithms)]
-        ax.bar(positions, sizes, yerr=errors, width=bar_width, label=dataset, capsize=2, align='center')
+        ax.bar(positions, sizes, yerr=errors, width=bar_width, label=dataset, capsize=2, align='center', color=bar_colors(idx))
 
     # ax.set_title('Execution overhead of lineage storage' + (" (single iteration)" if single else ""))
     ax.set_title(f"{metric} overhead for {configuration}")
-    ax.set_ylabel('Overhead compared to baseline execution')
+    ax.set_ylabel(f"Overhead compared to {compared_to} execution")
     ax.set_xlabel("Algorithm")
     #ax.set_xlabel("Dataset")
     #ax.set_xticks([i + bar_width * (num_algorithms - 1) / 2 for i in range(num_datasets)])
@@ -173,12 +220,17 @@ def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration"):
     #ax.set_xticklabels(algorithms, rotation=45, ha='right')
     # if metric != "total_size":
     # ax.yaxis.set_major_formatter(ticker.PercentFormatter())
-    # ax.legend()
+
+    if not REMOVE_LEGEND:
+        ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
+
+    plt.axhline(y=1, color='gray', linestyle='--')
 
     pos = ax.get_position()
     ax.set_position([pos.x0, pos.y0, pos.width * 0.9, pos.height])
-    # ax.legend(loc='center right')
-    ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
+
+    if with_legend:
+        ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
 
     plots_format = "pdf"
     filename = f"overhead_{configuration}_{metric}"
@@ -189,8 +241,15 @@ def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration"):
 def main():
     experiments_dirs = list([d for d in results_dir.iterdir() if d.is_dir()])
     latest_experiment = sorted(experiments_dirs, key=lambda x: x.name)[-1]
-    input_files = sorted(latest_experiment.glob("experiment-*/provenance.json"))
-    provenance_results = [Model(**json.loads(f.read_text())) for f in input_files]
+    print(latest_experiment)
+    input_files = sorted(latest_experiment.glob("experiment-*/provenance/inputs.json"))
+    output_files = sorted(latest_experiment.glob("experiment-*/provenance/outputs.json"))
+    provenance_results = [
+        Model(
+            inputs=json.loads(f.read_text()),
+            outputs=json.loads(output_files[idx].read_text())
+        ) for idx, f in enumerate(input_files)
+    ]
 
     data = {}
     for r in provenance_results:
@@ -211,9 +270,14 @@ def main():
             "total_size": (total_size if config != "baseline" else r.outputs.sizes.total)
         })
 
+    once = False
     for setup in data.keys():
         pdir = plots_dir / latest_experiment.name / setup
         pdir.mkdir(exist_ok=True, parents=True)
+
+        if not once:
+            once = True
+            values_plot(data, setup, pdir, metric="output_size", export_legend=True)
 
         values_plot(data, setup, pdir, metric="duration")
         values_plot(data, setup, pdir, metric="total_size")
