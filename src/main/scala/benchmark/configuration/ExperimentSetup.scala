@@ -1,5 +1,5 @@
 package lu.magalhaes.gilles.provxlib
-package benchmark
+package benchmark.configuration
 
 object ExperimentSetup extends Enumeration {
   type ExperimentSetup = Value

@@ -1,9 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.ExperimentParameters.{BFS, LCC, PageRank, SSSP, WCC}
+import benchmark.configuration.{
+  BenchmarkAppConfig,
+  ExperimentSetup,
+  GraphAlgorithm
+}
+import benchmark.configuration.ExperimentSetup.ExperimentSetup
 import benchmark.utils.{GraphUtils, TimeUtils}
-import benchmark.ExperimentSetup.ExperimentSetup
 import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
@@ -29,23 +33,22 @@ import org.apache.spark.graphx.VertexId
 import org.apache.spark.sql.SparkSession
 
 object Benchmark {
-  import utils.CustomCLIArguments._
+  import utils.CustomCLIArgs._
 
   @main
   case class Config(
       @arg(name = "config", doc = "Graphalytics benchmark configuration")
-      description: ExperimentDescription
+      config: BenchmarkAppConfig
   )
 
   def run(spark: SparkSession, args: Config): (Unit, Long) = TimeUtils.timed {
-    val description = args.description
+    val description = args.config
     print(description)
 
     val provenanceDir = description.outputDir / "provenance"
     os.makeDir.all(provenanceDir)
 
-    val pathPrefix =
-      s"${description.benchmarkConfig.datasetPath}/${description.dataset}"
+    val pathPrefix = s"${args.config.datasetPath}/${description.dataset}"
 
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage(spark)
@@ -64,7 +67,7 @@ object Benchmark {
     val (tracingEnabled, storageEnabled, compressionEnabled) =
       computeFlags(expSetup.get)
 
-    val parameters = ExperimentDescriptionSerializer.serialize(description)
+    val parameters = upickle.default.writeJs(description)
     parameters("applicationId") = spark.sparkContext.applicationId
     parameters("tracingEnabled") = tracingEnabled
     parameters("storageEnabled") = storageEnabled
@@ -102,23 +105,19 @@ object Benchmark {
     // Run algorithm
     val (_, elapsedTime) = TimeUtils.timed {
       description.algorithm match {
-        case BFS() => filteredGL.bfs(config.bfsSourceVertex())
-        case PageRank() =>
-          filteredGL.pageRank(numIter = config.pageRankIterations())
-        case SSSP() => filteredGL.sssp(config.ssspSourceVertex())
-        case WCC()  => filteredGL.wcc()
-//        case LCC() => {
-//          println("Running LCC from Benchmark")
-//          gl.lcc()
-//        }
-        // case "cdlp" => Some(gl.cdlp())
-        case _ => throw new NotImplementedError("unknown graph algorithm")
+        case GraphAlgorithm.BFS() =>
+          filteredGL.bfs(config.bfs.get.sourceVertex)
+        case GraphAlgorithm.PageRank() =>
+          filteredGL.pageRank(numIter = config.pr.get.numIterations)
+        case GraphAlgorithm.SSSP() =>
+          filteredGL.sssp(config.sssp.get.sourceVertex)
+        case GraphAlgorithm.WCC() => filteredGL.wcc()
       }
     }
     println(s"Run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
 
     val resultsPath =
-      s"${description.benchmarkConfig.outputPath}/experiment-${description.experimentID}/vertices.txt"
+      s"${description.outputDir}/experiment-${description.experimentID}/vertices.txt"
     filteredGL.vertices.saveAsTextFile(resultsPath)
 
     val resultsSize = fileSize(spark, resultsPath)
@@ -222,27 +221,25 @@ object Benchmark {
 
   def dataFilter(
       experimentSetup: ExperimentSetup,
-      algorithm: ExperimentParameters.Algorithm
+      algorithm: GraphAlgorithm
   ): (VertexId, Any) => Boolean = {
     experimentSetup match {
       case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
         algorithm match {
-          case WCC() | BFS() =>
+          case GraphAlgorithm.BFS() | GraphAlgorithm.WCC() =>
             (_: VertexId, value: Any) => {
               value.asInstanceOf[Long] != Long.MaxValue
             }
-          case PageRank() =>
+          case GraphAlgorithm.PageRank() =>
             (_: VertexId, _: Any) => {
               // TODO: figure out how to filter PageRank
               // TODO: get previous generation and compare if change is more than a certain delta
               true
             }
-          case SSSP() =>
+          case GraphAlgorithm.SSSP() =>
             (_: VertexId, value: Any) => {
               value.asInstanceOf[Double] != Double.PositiveInfinity
             }
-          case _ =>
-            throw new NotImplementedError("unknown graph algorithm")
         }
       case _ =>
         (_: VertexId, _: Any) => true
@@ -282,11 +279,11 @@ object Benchmark {
 
   def main(args: Array[String]): Unit = {
     val parsedArgs = ParserForClass[Config].constructOrExit(args.toIndexedSeq)
-    val description = parsedArgs.description
+    val config = parsedArgs.config
     val spark = SparkSession
       .builder()
       .appName(
-        s"ProvX ${description.algorithm}/${description.dataset}/${description.setup}/${description.runNr} benchmark"
+        s"ProvX ${config.algorithm}/${config.dataset}/${config.setup}/${config.runNr} benchmark"
       )
       .getOrCreate()
 

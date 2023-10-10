@@ -2,9 +2,12 @@ package lu.magalhaes.gilles.provxlib
 package benchmark
 
 import benchmark.configuration.{
-  BenchmarkConfig,
-  GraphalyticsConfiguration,
-  NotificationsConfig
+  BenchmarkAppConfig,
+  ExperimentSetup,
+  GraphAlgorithm,
+  GraphalyticsConfig,
+  RunnerConfig,
+  RunnerConfigData
 }
 import benchmark.utils._
 
@@ -13,20 +16,22 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.io.IOUtils
 import org.apache.spark.launcher.SparkLauncher
+import pureconfig._
+import pureconfig.generic.auto._
 
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 object Runner {
-  import utils.CustomCLIArguments._
+  import utils.CustomCLIArgs._
 
   type ExperimentTuple = (String, String, String, Int)
 
   @main
   case class Config(
       @arg(name = "config", doc = "Graphalytics benchmark configuration")
-      benchmarkConfig: BenchmarkConfig,
+      runnerConfig: RunnerConfigData,
       @arg(name = "description", doc = "Experiment description")
       description: String = "",
       @arg(
@@ -42,20 +47,21 @@ object Runner {
   )
 
   def start(args: Config): List[ExperimentTuple] = {
-    val benchmarkConfig = args.benchmarkConfig
-    val currentExperimentPath = benchmarkConfig.createCurrentExperimentDir()
-    if (currentExperimentPath.isEmpty) {
+    val runnerConfig = args.runnerConfig.runner
+    val currentExperimentPath =
+      RunnerConfig.currentExperimentDir(runnerConfig.experimentsPath)
+
+    if (!os.exists(currentExperimentPath)) {
       println("Aborting benchmark. Experiments directory exists.")
       System.exit(1)
     }
-    val experimentPath = currentExperimentPath.get
 
     // Copy dataset properties file data config to `configs` folder in experiment folder
-    val configsPath = experimentPath / "configs"
+    val configsPath = currentExperimentPath / "configs"
     os.makeDir.all(configsPath)
 
-    benchmarkConfig.graphs.foreach(d => {
-      val hdfsPath = new Path(s"${benchmarkConfig.datasetPath}/${d}.properties")
+    runnerConfig.graphs.foreach(d => {
+      val hdfsPath = new Path(s"${runnerConfig.datasetPath}/${d}.properties")
       val localPath =
         new Path(s"${configsPath.toString()}/${d}.properties")
       val fs = hdfsPath.getFileSystem(new Configuration())
@@ -63,40 +69,49 @@ object Runner {
     })
 
     // Get experiment description from user via readline (if not specified at CLI)
-    val descriptionFilePath = experimentPath / "description.txt"
+    val descriptionFilePath = currentExperimentPath / "description.txt"
     FileUtils.writeFile(
       descriptionFilePath.toString(),
       Seq(args.description)
     )
 
     // Copy benchmark config for reproducibility (when running new benchmark)
-    os.copy(
-      os.Path(benchmarkConfig.getPath),
-      experimentPath / "config.properties"
-    )
+    // TODO: fix this again
+//    os.copy(
+//      os.Path(benchmarkConfig.getPath),
+//      currentExperimentPath / "config.properties"
+//    )
 
-    generateConfigurations(benchmarkConfig).toList
+    generateConfigurations(args.runnerConfig)
   }
 
   def run(args: Config, experimentTuples: List[ExperimentTuple]): Long = {
-    val benchmarkConfig = args.benchmarkConfig
-    val experimentPath = args.benchmarkConfig.currentExperimentDir.get
+    val runnerConfig = args.runnerConfig.runner
+    val currentExperimentPath =
+      RunnerConfig.currentExperimentDir(runnerConfig.experimentsPath)
+    os.makeDir.all(currentExperimentPath)
 
-    println(s"Experiment path: ${experimentPath}")
+    println(s"Experiment path: ${currentExperimentPath}")
 
     val configurations = experimentTuples
       .map(v => {
         val experimentID = UUID.randomUUID()
-        ExperimentDescription(
+        BenchmarkAppConfig(
           experimentID = experimentID.toString,
           dataset = v._1,
-          algorithm = AlgorithmSerializer.deserialize(v._2.toUpperCase),
+          datasetPath = os.Path(runnerConfig.datasetPath),
+          algorithm = v._2 match {
+            case "bfs"  => GraphAlgorithm.BFS()
+            case "pr"   => GraphAlgorithm.PageRank()
+            case "sssp" => GraphAlgorithm.SSSP()
+            case "wcc"  => GraphAlgorithm.WCC()
+          },
           setup = v._3,
           runNr = v._4,
-          outputDir = experimentPath / s"experiment-${experimentID}",
-          benchmarkConfig = benchmarkConfig,
-          lineageDir =
-            benchmarkConfig.lineagePath + s"/experiment-${experimentID}"
+          outputDir = currentExperimentPath / s"experiment-${experimentID}",
+          graphalyticsConfigPath =
+            os.Path(s"${runnerConfig.datasetPath}/${v._1}.properties"),
+          lineageDir = runnerConfig.lineagePath + s"/experiment-${experimentID}"
         )
       })
 
@@ -119,7 +134,8 @@ object Runner {
 
       val appArgs = Array(
         "--config",
-        ExperimentDescriptionSerializer.serialize(experiment).toString
+        upickle.default.write(experiment)
+//        ExperimentDescriptionSerializer.serialize(experiment).toString
       )
 
       if (!args.dryRun) {
@@ -138,14 +154,14 @@ object Runner {
         val ((app, expectedExit), elapsedTime) = TimeUtils.timed {
           val launcher = new SparkLauncher()
             .directory(directory)
-            .setAppResource(benchmarkConfig.benchmarkJar)
+            .setAppResource(runnerConfig.jar)
             .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
             .addAppArgs(appArgs: _*)
             .redirectOutput(outputFile)
             .redirectError(errorFile)
             .setSparkHome(sparkHome.get)
             .setConf("spark.eventLog.enabled", "true")
-            .setConf("spark.eventLog.dir", benchmarkConfig.sparkLogs)
+            .setConf("spark.eventLog.dir", runnerConfig.sparkLogs)
             .setConf("spark.ui.prometheus.enabled", "true")
             .setConf("spark.eventLog.logStageExecutorMetrics", "true")
             .setConf("spark.metrics.executorMetricsSource.enabled", "true")
@@ -194,14 +210,14 @@ object Runner {
 
     // Empty SUCCESS file indicates that ALL experiments terminated successfully
     if (args.resume.isEmpty) {
-      os.write(experimentPath / "SUCCESS", "")
+      os.write(currentExperimentPath / "SUCCESS", "")
     }
 
     0
   }
 
   def resume(args: Config): List[ExperimentTuple] = {
-    val benchmarkConfig = args.benchmarkConfig
+    val benchmarkConfig = args.runnerConfig
     println(s"Resume flag: ${args.resume.isDefined}")
     println(s"Loaded configuration from ${args.resume.get}")
 
@@ -215,7 +231,8 @@ object Runner {
         .dropRight(1)
         .mkString("/")
     )
-    args.benchmarkConfig.currentExperimentDir = Some(resultsDir)
+    // FIXME: this will be incorrect
+//    args.benchmarkConfig.currentExperimentDir = Some(resultsDir)
 
     val experimentDirectories =
       os.list(resultsDir).filter(os.stat(_).fileType == os.FileType.Dir)
@@ -260,36 +277,29 @@ object Runner {
     remainingConfigurations.toList.sortWith((t1, t2) => t1._3 < t2._3)
   }
 
-  def startupChecks(benchmarkConfig: BenchmarkConfig): Long = {
+  def startupChecks(runnerConfig: RunnerConfigData): Long = {
     val sparkHome = sys.env.get("SPARK_HOME")
     if (sparkHome.isEmpty) {
       println("SPARK_HOME env variable must be defined.")
       return 1
     }
 
-    if (!benchmarkConfig.validate()) {
-      println("Invalid configuration")
-      return 1
-    }
-
-    benchmarkConfig.debug()
+    runnerConfig.debug()
 
     0
   }
 
   def generateConfigurations(
-      benchmarkConfig: BenchmarkConfig
-  ): Array[ExperimentTuple] = {
+      runnerConfig: RunnerConfigData
+  ): List[ExperimentTuple] = {
+    val benchmarkConfig = runnerConfig.runner
     val runs = Range.inclusive(1, benchmarkConfig.repetitions).toList
 
     benchmarkConfig.graphs
       .flatMap(dataset => {
-        new GraphalyticsConfiguration(
-          new Configuration(),
-          s"${benchmarkConfig.datasetPath}/${dataset}.properties"
-        )
-          .algorithms()
-          .get
+        GraphalyticsConfig
+          .loadHadoop(s"${benchmarkConfig.datasetPath}/${dataset}.properties")
+          .algorithms
           .toSet
           .intersect(benchmarkConfig.algorithms.toSet)
           .map(algorithm => (dataset, algorithm))
@@ -312,11 +322,19 @@ object Runner {
     val (_, elapsedTime) = TimeUtils.timed {
       val newArgs = if (parsedArgs.resume.isDefined) {
         val resumePath = os.Path(
-          parsedArgs.benchmarkConfig.experimentsPath
+          parsedArgs.runnerConfig.runner.experimentsPath
         ) / parsedArgs.resume.get / "config.properties"
 
+        val oldRunnerConfig =
+          RunnerConfig.loadFile(s"file://${resumePath.toString()}") match {
+            case Left(value) =>
+              println(value.toString())
+              return
+            case Right(value) => value
+          }
+
         Config(
-          new BenchmarkConfig(s"file://${resumePath.toString()}"),
+          oldRunnerConfig,
           parsedArgs.description,
           parsedArgs.dryRun,
           Some(resumePath.toString())
@@ -325,7 +343,7 @@ object Runner {
         parsedArgs
       }
 
-      if (startupChecks(newArgs.benchmarkConfig) != 0) {
+      if (startupChecks(newArgs.runnerConfig) != 0) {
         println("An error occurred while running startup checks!")
         System.exit(1)
       }

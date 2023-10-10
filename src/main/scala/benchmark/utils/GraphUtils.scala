@@ -1,7 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.utils
 
-import benchmark.configuration.GraphalyticsConfiguration
+import benchmark.configuration.{
+  GraphalyticsConfig,
+  GraphalyticsConfigData,
+  GraphConfig
+}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph}
@@ -14,9 +18,8 @@ object GraphUtils {
   def load(
       sc: SparkContext,
       prefix: String
-  ): (Graph[Unit, Double], GraphalyticsConfiguration) = {
-    val config =
-      new GraphalyticsConfiguration(sc.hadoopConfiguration, configPath(prefix))
+  ): (Graph[Unit, Double], GraphConfig) = {
+    val config = GraphalyticsConfig.loadHadoop(configPath(prefix))
 
     val edgePath = edgesPath(prefix)
     val vertexPath = verticesPath(prefix)
