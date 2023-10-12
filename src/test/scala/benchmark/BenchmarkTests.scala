@@ -15,6 +15,8 @@ import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
 import org.apache.spark.graphx.{Edge, Graph}
 import org.scalatest.funsuite.AnyFunSuite
 
+import java.nio.file.Paths
+
 class BenchmarkTests extends AnyFunSuite {
   test("Benchmark test") {
     withSparkSession { sc =>
@@ -33,18 +35,29 @@ class BenchmarkTests extends AnyFunSuite {
         os.Path(runnerConfig.runner.outputPath.stripPrefix("file://"))
       )
 
+      val graphalyticsConfigPath = Paths
+        .get(
+          getClass.getClassLoader
+            .getResource("example-directed.properties")
+            .toURI
+        )
+        .toFile
+        .getAbsolutePath
+
+      val datasetPath = graphalyticsConfigPath
+        .split("/")
+        .dropRight(1)
+        .mkString("/")
+
       val config = Benchmark.Config(
         BenchmarkAppConfig(
           experimentID = "1",
           dataset = dataset,
-          datasetPath =
-            os.Path("/Users/gm/vu/thesis/impl/provxlib/src/test/resources"),
+          datasetPath = os.Path(datasetPath),
           algorithm = GraphAlgorithm.BFS(),
           runNr = 1,
           outputDir = outputDir,
-          graphalyticsConfigPath = os.Path(
-            s"/Users/gm/vu/thesis/impl/provxlib/${runnerConfig.runner.datasetPath}/${dataset}.properties"
-          ),
+          graphalyticsConfigPath = os.Path(graphalyticsConfigPath),
           lineageDir = runnerConfig.runner.lineagePath,
           setup = "Baseline"
         )
