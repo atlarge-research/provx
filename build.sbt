@@ -16,7 +16,8 @@ val sparkVersion = "3.3.2"
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-graphx" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-  "commons-configuration" % "commons-configuration" % "1.10",
+  "com.github.pureconfig" %% "pureconfig" % "0.17.4",
+  // will not need these anymore for reading/writing to files
   "com.lihaoyi" %% "upickle" % "3.1.0",
   "com.lihaoyi" %% "os-lib" % "0.9.1",
   "com.lihaoyi" %% "requests" % "0.8.0",
