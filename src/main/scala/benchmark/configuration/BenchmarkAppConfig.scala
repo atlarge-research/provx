@@ -1,48 +1,10 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphAlgorithm.{
-  benchmarkAppConfigReader,
-  BFS
-}
-import upickle.default.{macroRW, readwriter, ReadWriter => RW}
+import com.typesafe.config.ConfigRenderOptions
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import pureconfig._
 import pureconfig.generic.auto._
-import pureconfig.generic.semiauto.deriveReader
-
-sealed abstract class GraphAlgorithm
-
-object GraphAlgorithm {
-  implicit val benchmarkAppConfigReader: ConfigReader[GraphAlgorithm] =
-    deriveReader[GraphAlgorithm]
-  case class BFS() extends GraphAlgorithm
-
-  object BFS {
-    implicit val rw: RW[BFS] = macroRW
-  }
-  case class PageRank() extends GraphAlgorithm
-
-  object PageRank {
-    implicit val rw: RW[PageRank] = macroRW
-  }
-  case class SSSP() extends GraphAlgorithm
-
-  object SSSP {
-    implicit val rw: RW[SSSP] = macroRW
-  }
-  case class WCC() extends GraphAlgorithm
-
-  object WCC {
-    implicit val rw: RW[WCC] = macroRW
-  }
-
-  implicit val rw: RW[GraphAlgorithm] = RW.merge(
-    BFS.rw,
-    PageRank.rw,
-    SSSP.rw,
-    WCC.rw
-  )
-}
 
 case class BenchmarkAppConfig(
     // Experiment identifier
@@ -50,7 +12,7 @@ case class BenchmarkAppConfig(
     // Dataset to run algorithm on
     dataset: String,
     // Path to dataset to run (usually stored on Hadoop)
-    datasetPath: os.Path,
+    datasetPath: String,
     // Algorithm to run
     algorithm: GraphAlgorithm,
     // Run number
@@ -58,7 +20,7 @@ case class BenchmarkAppConfig(
     // Directory to store results (local filesystem)
     outputDir: os.Path,
     // Graphalytics benchmark configuration
-    graphalyticsConfigPath: os.Path,
+    graphalyticsConfigPath: String,
     // Path where to storage lineage
     lineageDir: String,
     // Experiment setup
@@ -78,18 +40,21 @@ case class BenchmarkAppConfig(
 }
 
 object BenchmarkAppConfig {
-  implicit val pathRW: RW[os.Path] =
-    readwriter[String].bimap[os.Path](
-      _.toString(),
-      os.Path(_)
-    )
-  implicit val rw: RW[BenchmarkAppConfig] = macroRW
+  implicit val pathReadWriter: ConfigConvert[os.Path] =
+    ConfigConvert[String].xmap(os.Path(_), _.toString)
 
-  implicit val pathConfigReader: ConfigReader[os.Path] =
-    ConfigReader[String].map(os.Path(_))
-  implicit val pathConfigWriter: ConfigWriter[os.Path] =
-    ConfigWriter[String].contramap(_.toString())
+  implicit val graphAlgorithmConverter: ConfigConvert[GraphAlgorithm] =
+    ConfigConvert[String].xmap(
+      GraphAlgorithm.withName,
+      _.toString
+    )
 
   def loadString(contents: String): ConfigReader.Result[BenchmarkAppConfig] =
     ConfigSource.string(contents).load[BenchmarkAppConfig]
+
+  def write(config: BenchmarkAppConfig): String = {
+    ConfigWriter[BenchmarkAppConfig]
+      .to(config)
+      .render(ConfigRenderOptions.concise())
+  }
 }

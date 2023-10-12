@@ -27,6 +27,8 @@ import provenance.events.{
   WCC => ETWCC
 }
 
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.BenchmarkAppConfig.write
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.graphx.VertexId
@@ -67,10 +69,13 @@ object Benchmark {
     val (tracingEnabled, storageEnabled, compressionEnabled) =
       computeFlags(expSetup.get)
 
-    val parameters = upickle.default.writeJs(description)
+    val parametersDescription = write(description)
+    val parameters = ujson.read(parametersDescription)
     parameters("applicationId") = spark.sparkContext.applicationId
     parameters("tracingEnabled") = tracingEnabled
     parameters("storageEnabled") = storageEnabled
+    parameters("executorCount") =
+      spark.sparkContext.getExecutorMemoryStatus.keys.toList.length
 
     val inputs = ujson.Obj(
       "config" -> GraphUtils.configPath(pathPrefix),
@@ -105,13 +110,13 @@ object Benchmark {
     // Run algorithm
     val (_, elapsedTime) = TimeUtils.timed {
       description.algorithm match {
-        case GraphAlgorithm.BFS() =>
+        case GraphAlgorithm.BFS =>
           filteredGL.bfs(config.bfs.get.sourceVertex)
-        case GraphAlgorithm.PageRank() =>
+        case GraphAlgorithm.PageRank =>
           filteredGL.pageRank(numIter = config.pr.get.numIterations)
-        case GraphAlgorithm.SSSP() =>
+        case GraphAlgorithm.SSSP =>
           filteredGL.sssp(config.sssp.get.sourceVertex)
-        case GraphAlgorithm.WCC() => filteredGL.wcc()
+        case GraphAlgorithm.WCC => filteredGL.wcc()
       }
     }
     println(s"Run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
@@ -226,17 +231,17 @@ object Benchmark {
     experimentSetup match {
       case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
         algorithm match {
-          case GraphAlgorithm.BFS() | GraphAlgorithm.WCC() =>
+          case GraphAlgorithm.BFS | GraphAlgorithm.WCC =>
             (_: VertexId, value: Any) => {
               value.asInstanceOf[Long] != Long.MaxValue
             }
-          case GraphAlgorithm.PageRank() =>
+          case GraphAlgorithm.PageRank =>
             (_: VertexId, _: Any) => {
               // TODO: figure out how to filter PageRank
               // TODO: get previous generation and compare if change is more than a certain delta
               true
             }
-          case GraphAlgorithm.SSSP() =>
+          case GraphAlgorithm.SSSP =>
             (_: VertexId, value: Any) => {
               value.asInstanceOf[Double] != Double.PositiveInfinity
             }

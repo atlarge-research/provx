@@ -53,11 +53,11 @@ class BenchmarkTests extends AnyFunSuite {
         BenchmarkAppConfig(
           experimentID = "1",
           dataset = dataset,
-          datasetPath = os.Path(datasetPath),
-          algorithm = GraphAlgorithm.BFS(),
+          datasetPath = datasetPath,
+          algorithm = GraphAlgorithm.BFS,
           runNr = 1,
           outputDir = outputDir,
-          graphalyticsConfigPath = os.Path(graphalyticsConfigPath),
+          graphalyticsConfigPath = graphalyticsConfigPath,
           lineageDir = runnerConfig.runner.lineagePath,
           setup = "Baseline"
         )
@@ -132,7 +132,7 @@ class BenchmarkTests extends AnyFunSuite {
       assert(
         g.subgraph(vpred =
           Benchmark
-            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.WCC())
+            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.WCC)
         ).vertices
           .collect()
           .length == 1
@@ -140,7 +140,7 @@ class BenchmarkTests extends AnyFunSuite {
 
       assert(
         g.subgraph(vpred =
-          Benchmark.dataFilter(ExperimentSetup.Baseline, GraphAlgorithm.WCC())
+          Benchmark.dataFilter(ExperimentSetup.Baseline, GraphAlgorithm.WCC)
         ).vertices
           .collect()
           .length == 3
@@ -150,7 +150,7 @@ class BenchmarkTests extends AnyFunSuite {
       assert(
         g2.subgraph(vpred =
           Benchmark
-            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.SSSP())
+            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.SSSP)
         ).vertices
           .collect()
           .length == 1

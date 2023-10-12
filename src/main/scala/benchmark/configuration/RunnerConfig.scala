@@ -1,13 +1,15 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
+import com.typesafe.config.ConfigRenderOptions
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.ExperimentSetup.ExperimentSetup
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.generic.ProductHint
 import pureconfig.ConfigReader.Result
 
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.util.{Calendar, Properties}
 
 case class RunnerParameters(
     // Inputs
@@ -22,6 +24,8 @@ case class RunnerParameters(
     datasetPath: String,
     // Where to store metrics and execution logs
     experimentsPath: String,
+    // Which experiment setups to run
+    setups: List[ExperimentSetup],
     // Outputs (HDFS)
     // Where to store the lineage information
     lineagePath: String,
@@ -46,12 +50,35 @@ case class RunnerConfigData(
     println(s"Repetitions : ${runner.repetitions}")
     println(s"Graphs:     : ${runner.graphs.toSet.mkString(", ")}")
     println(s"Algorithms  : ${runner.algorithms.toSet.mkString(", ")}")
+    println(s"Setups      : ${runner.setups.toSet.mkString(", ")}")
   }
 }
 
 object RunnerConfig extends ConfigLoader[RunnerConfigData] {
   implicit val stringListReader: ConfigReader[List[String]] =
-    ConfigReader[String].map(_.split(",").toList.map(_.trim))
+    ConfigReader[String].map(
+      _.split(",").toList
+        .map(_.trim)
+        .filterNot(_.startsWith("#"))
+        .filterNot(_.isEmpty)
+    )
+
+  implicit val experimentSetupReader: ConfigReader[List[ExperimentSetup]] =
+    ConfigReader[String].map(
+      _.split(",").toList
+        .map(_.trim)
+        .filterNot(_.startsWith("#"))
+        .filterNot(_.isEmpty)
+        .map(v => ExperimentSetup.withName(v.trim))
+    )
+
+  implicit val stringListWriter: ConfigWriter[List[String]] =
+    ConfigWriter[String].contramap[List[String]](_.mkString(", "))
+
+  implicit val experimentSetupWriter: ConfigWriter[List[ExperimentSetup]] =
+    ConfigWriter[String].contramap[List[ExperimentSetup]](
+      _.map(_.toString).mkString(", ")
+    )
 
   implicit def hint[T]: ProductHint[T] =
     ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
@@ -64,4 +91,10 @@ object RunnerConfig extends ConfigLoader[RunnerConfigData] {
 
   def load(configSource: ConfigSource): Result[RunnerConfigData] =
     configSource.load[RunnerConfigData]
+
+  def write(config: RunnerConfigData): String = {
+    ConfigWriter[RunnerConfigData]
+      .to(config)
+      .render(ConfigRenderOptions.concise())
+  }
 }

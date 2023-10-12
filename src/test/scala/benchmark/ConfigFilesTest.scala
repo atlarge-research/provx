@@ -30,7 +30,10 @@ class ConfigFilesTest extends AnyFunSuite {
         case Right(value) => value
       }
 
+    println(RunnerConfig.write(runnerConfig))
     println(runnerConfig.runner.algorithms)
+    println(runnerConfig.runner.graphs)
+    println(runnerConfig.runner.setups)
 
     assert(runnerConfig.runner.jar == "invalid-path")
   }

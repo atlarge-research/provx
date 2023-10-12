@@ -21,7 +21,7 @@ object CustomCLIArgs {
     override def allowEmpty: Boolean = false
 
     def read(strs: Seq[String]): Either[String, BenchmarkAppConfig] = {
-      BenchmarkAppConfig.loadString(strs.head) match {
+      BenchmarkAppConfig.loadString(strs.head.replaceAll("\\\"", "\"")) match {
         case Left(value)  => Left(value.toString())
         case Right(value) => Right(value)
       }
@@ -36,7 +36,7 @@ object CustomCLIArgs {
     override def allowEmpty: Boolean = false
 
     def read(strs: Seq[String]): Either[String, RunnerConfigData] = {
-      RunnerConfig.loadString(strs.head) match {
+      RunnerConfig.loadFile(strs.head) match {
         case Left(value)  => Left(value.toString())
         case Right(value) => Right(value)
       }
