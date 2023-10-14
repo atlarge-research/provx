@@ -3,7 +3,11 @@ package benchmark
 
 import benchmark.configuration._
 import benchmark.configuration.BenchmarkAppConfig.write
-import benchmark.configuration.ExperimentSetup.{ExperimentSetup, StorageFormats}
+import benchmark.configuration.ExperimentSetup.{
+  ExperimentSetup,
+  StorageFormats,
+  Compression
+}
 import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import benchmark.utils._
 import provenance.storage._
@@ -20,7 +24,7 @@ import java.util.concurrent.TimeUnit
 object Runner {
   import utils.CustomCLIArgs._
 
-  type ExperimentTuple =
+  private type ExperimentTuple =
     (String, GraphAlgorithm, ExperimentSetup, StorageFormat, Int)
 
   @main
@@ -41,7 +45,7 @@ object Runner {
       resume: Option[String] = None
   )
 
-  def start(args: Config): List[ExperimentTuple] = {
+  private def start(args: Config): List[ExperimentTuple] = {
     val runnerConfig = args.runnerConfig.runner
     val expPath = os.Path(runnerConfig.experimentsPath)
 
@@ -112,6 +116,7 @@ object Runner {
             s"algorithm=${experiment.algorithm}",
             s"graph=${experiment.dataset}",
             s"setup=${experiment.setup}",
+            s"storageFormat=${experiment.storageFormat}",
             s"run=${experiment.runNr}"
           ) mkString " ") + Console.RESET
       )
@@ -199,7 +204,7 @@ object Runner {
     0
   }
 
-  def resume(args: Config): List[ExperimentTuple] = {
+  private def resume(args: Config): List[ExperimentTuple] = {
     val benchmarkConfig = args.runnerConfig
     println(s"Resume flag: ${args.resume.isDefined}")
     println(s"Loaded configuration from ${args.resume.get}")
@@ -252,7 +257,7 @@ object Runner {
     remainingConfigurations.toList
   }
 
-  def startupChecks(runnerConfig: RunnerConfigData): Long = {
+  private def startupChecks(runnerConfig: RunnerConfigData): Long = {
     val sparkHome = sys.env.get("SPARK_HOME")
 
     val conditions = Seq(
@@ -272,7 +277,7 @@ object Runner {
     0
   }
 
-  def generateConfigurations(
+  private def generateConfigurations(
       runnerConfig: RunnerConfigData
   ): List[ExperimentTuple] = {
     val benchmarkConfig = runnerConfig.runner
@@ -288,21 +293,28 @@ object Runner {
       })
       .flatMap(v => {
         benchmarkConfig.setups
-          .filterNot(_ == ExperimentSetup.StorageFormats)
-          .map(es => (v._1, v._2, es, TextFile())) ++
-          Seq(
-            TextFile(),
-            ObjectFile(),
-            ParquetFile(),
-            AvroFile(),
-            ORCFile(),
-            CSVFile(),
-            JSONFormat(),
-            // Compressible formats
-            TextFile(true),
-            CSVFile(true),
-            JSONFormat(true)
-          ).map(fmt => (v._1, v._2, ExperimentSetup.StorageFormats, fmt))
+          .flatMap(es => {
+            es match {
+              case StorageFormats =>
+                Seq(
+                  TextFile(),
+                  ObjectFile(),
+                  ParquetFile(),
+                  AvroFile(),
+                  ORCFile(),
+                  CSVFile(),
+                  JSONFormat(),
+                  // Compressible formats
+                  TextFile(true),
+                  CSVFile(true),
+                  JSONFormat(true)
+                ).map(fmt => (v._1, v._2, ExperimentSetup.StorageFormats, fmt))
+              case Compression =>
+                Seq((v._1, v._2, ExperimentSetup.Compression, TextFile(true)))
+              case es: ExperimentSetup =>
+                Seq((v._1, v._2, es, TextFile()))
+            }
+          })
       })
       .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, r)))
   }

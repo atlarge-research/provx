@@ -11,7 +11,7 @@ import scala.reflect.ClassTag
 
 class HDFSStorageHandler(
     val lineageDirectory: String,
-    format: StorageFormat = TextFile()
+    format: StorageFormat
 ) extends StorageHandler {
 
   override def write[V: ClassTag, D: ClassTag](
@@ -19,47 +19,32 @@ class HDFSStorageHandler(
       g: GraphLineage[V, D]
   ): StorageLocation = {
     val name = UUID.randomUUID().toString
-    val dir = s"$lineageDirectory/$name"
-    println(s"Saving data to ${dir}")
-    //    val t = g.vertices.map((v) => (v._1, v._2.toString))
-    //    val df = spark.createDataFrame(t)
-    //    df.write.csv(dir)
-    var createDataframe = format match {
+    val path = s"$lineageDirectory/$name.${StorageFormat.extension(format)}"
+    println(s"Saving data to ${path} in format ${format}")
+    val createDataframe = format match {
       case TextFile(compression) =>
         if (compression) {
-          g.vertices.saveAsTextFile(dir + ".txt", classOf[GzipCodec])
+          g.vertices.saveAsTextFile(path, classOf[GzipCodec])
         } else {
-          g.vertices.saveAsTextFile(dir + ".txt")
+          g.vertices.saveAsTextFile(path)
         }
         false
       case ObjectFile() =>
-        g.vertices.saveAsObjectFile(dir + ".obj")
+        g.vertices.saveAsObjectFile(path)
         false
       case _ => true
     }
     if (createDataframe) {
-      val t = g.vertices.map((v) => (v._1, v._2.toString))
+      val t = g.vertices.map(v => (v._1, v._2.toString))
       val df = spark.createDataFrame(t)
-      val output = df.write
-      format match {
-        case ParquetFile() =>
-          output.format("parquet").save(dir + ".parquet")
-        case AvroFile() =>
-          output.format("avro").save(dir + ".avro")
-        case ORCFile() =>
-          output.format("orc").save(dir + ".orc")
-        case CSVFile(compression) =>
-          if (compression) {
-            output.option("compression", "gzip")
-          } else {
-            output
-          }.format("csv").save(dir + ".csv")
-        case JSONFormat(compression) =>
-          if (compression) {
-            output.option("compression", "gzip")
-          }.format("json").save(dir + ".json")
+      val output = format match {
+        case CSVFile(true) | JSONFormat(true) =>
+          df.write.option("compression", "gzip")
+        case _ => df.write
       }
+
+      output.format(StorageFormat.extension(format)).save(path)
     }
-    HDFSLocation(dir)
+    HDFSLocation(path)
   }
 }

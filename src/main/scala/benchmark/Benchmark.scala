@@ -60,7 +60,7 @@ object Benchmark {
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
-    val (tracingEnabled, storageEnabled, compressionEnabled) =
+    val (tracingEnabled, storageEnabled) =
       computeFlags(description.setup)
 
     val parametersDescription = write(description)
@@ -197,7 +197,7 @@ object Benchmark {
     fs.delete(lineagePath, true)
   }
 
-  def computeFlags(expSetup: ExperimentSetup): (Boolean, Boolean, Boolean) = {
+  def computeFlags(expSetup: ExperimentSetup): (Boolean, Boolean) = {
     val tracingEnabled = expSetup match {
       case ExperimentSetup.Baseline => false
       case _                        => true
@@ -209,13 +209,7 @@ object Benchmark {
       case _                        => true
     }
 
-    val compressionFlag = expSetup match {
-      case ExperimentSetup.Compression => true
-      case ExperimentSetup.Combined    => true
-      case _                           => false
-    }
-
-    (tracingEnabled, storageEnabled, compressionFlag)
+    (tracingEnabled, storageEnabled)
   }
 
   def dataFilter(

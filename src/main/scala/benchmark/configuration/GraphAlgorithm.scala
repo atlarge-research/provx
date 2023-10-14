@@ -17,7 +17,6 @@ object GraphAlgorithm extends Enumeration {
         throw new NotImplementedError(
           "unknown graph algorithm in Graphalytics configuration"
         )
-
     })
   }
 }

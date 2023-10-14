@@ -70,36 +70,36 @@ class BenchmarkTests extends AnyFunSuite {
 
   test("Benchmark flags computation") {
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Compression) == (true, true, true)
+      Benchmark.computeFlags(ExperimentSetup.Compression) == (true, true)
     )
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Storage) == (true, true, false)
+      Benchmark.computeFlags(ExperimentSetup.Storage) == (true, true)
     )
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Tracing) == (true, false, false)
+      Benchmark.computeFlags(ExperimentSetup.Tracing) == (true, false)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.SmartPruning
-      ) == (true, true, false)
+      ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.AlgorithmOpOnly
-      ) == (true, true, false)
+      ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.JoinVerticesOpOnly
-      ) == (true, true, false)
+      ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.Combined
-      ) == (true, true, true)
+      ) == (true, true)
     )
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Baseline) == (false, false, false)
+      Benchmark.computeFlags(ExperimentSetup.Baseline) == (false, false)
     )
   }
 

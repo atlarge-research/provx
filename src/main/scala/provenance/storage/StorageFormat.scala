@@ -34,4 +34,17 @@ object StorageFormat {
       case _                   => throw new UnknownError("unrecognized StorageFormat supplied")
     }
   }
+
+  def extension(fmt: StorageFormat): String = {
+    fmt match {
+      case TextFile(_)   => "txt"
+      case ObjectFile()  => "obj"
+      case ParquetFile() => "parquet"
+      case AvroFile()    => "avro"
+      case ORCFile()     => "orc"
+      case CSVFile(_)    => "csv"
+      case JSONFormat(_) => "json"
+      case _             => throw new UnknownError("unknown format")
+    }
+  }
 }
