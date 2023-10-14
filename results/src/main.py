@@ -239,54 +239,55 @@ def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration", 
 
 
 def main():
-    experiments_dirs = list([d for d in results_dir.iterdir() if d.is_dir()])
-    latest_experiment = sorted(experiments_dirs, key=lambda x: x.name)[-1]
-    print(latest_experiment)
-    input_files = sorted(latest_experiment.glob("experiment-*/provenance/inputs.json"))
-    output_files = sorted(latest_experiment.glob("experiment-*/provenance/outputs.json"))
-    provenance_results = [
-        Model(
-            inputs=json.loads(f.read_text()),
-            outputs=json.loads(output_files[idx].read_text())
-        ) for idx, f in enumerate(input_files)
-    ]
+    cluster_dirs = list([d for d in results_dir.iterdir() if d.is_dir()])
+    for cluster_dir in cluster_dirs:
+        experiments_dirs = list([d for d in cluster_dir.iterdir() if d.is_dir()])
+        latest_experiment = sorted(experiments_dirs, key=lambda x: x.name)[-1]
+        input_files = sorted(latest_experiment.glob("experiment-*/provenance/inputs.json"))
+        output_files = sorted(latest_experiment.glob("experiment-*/provenance/outputs.json"))
+        provenance_results = [
+            Model(
+                inputs=json.loads(f.read_text()),
+                outputs=json.loads(output_files[idx].read_text())
+            ) for idx, f in enumerate(input_files)
+        ]
 
-    data = {}
-    for r in provenance_results:
-        algorithm = r.inputs.parameters.algorithm
-        dataset = r.inputs.parameters.dataset
-        config = r.inputs.parameters.setup.lower()
-        if config not in data:
-            data[config] = {}
-        c = data[config]
-        k = (algorithm, dataset)
-        if c.get(k) is None:
-            c[k] = []
-        total_size = sum([l.size for l in r.outputs.sizes.individual])
-        c[k].append({
-            "run": r.inputs.parameters.runNr,
-            "duration": r.outputs.duration.amount / 10**9, # in seconds
-            "output_size": r.outputs.sizes.total,
-            "total_size": (total_size if config != "baseline" else r.outputs.sizes.total)
-        })
+        data = {}
+        for r in provenance_results:
+            algorithm = r.inputs.parameters.algorithm
+            dataset = r.inputs.parameters.dataset
+            config = r.inputs.parameters.setup.lower()
+            if config not in data:
+                data[config] = {}
+            c = data[config]
+            k = (algorithm, dataset)
+            if c.get(k) is None:
+                c[k] = []
+            total_size = sum([l.size for l in r.outputs.sizes.individual])
+            c[k].append({
+                "run": r.inputs.parameters.runNr,
+                "duration": r.outputs.duration.amount / 10**9, # in seconds
+                "output_size": r.outputs.sizes.total,
+                "total_size": (total_size if config != "baseline" else r.outputs.sizes.total)
+            })
 
-    once = False
-    for setup in data.keys():
-        pdir = plots_dir / latest_experiment.name / setup
-        pdir.mkdir(exist_ok=True, parents=True)
+        once = False
+        for setup in data.keys():
+            pdir = plots_dir / cluster_dir.name / latest_experiment.name / setup
+            pdir.mkdir(exist_ok=True, parents=True)
 
-        if not once:
-            once = True
-            values_plot(data, setup, pdir, metric="output_size", export_legend=True)
+            if not once:
+                once = True
+                values_plot(data, setup, pdir, metric="output_size", export_legend=True)
 
-        values_plot(data, setup, pdir, metric="duration")
-        values_plot(data, setup, pdir, metric="total_size")
+            values_plot(data, setup, pdir, metric="duration")
+            values_plot(data, setup, pdir, metric="total_size")
 
-        if setup == "baseline":
-            continue
+            if setup == "baseline":
+                continue
 
-        overhead_plot(data, setup, pdir, metric="duration")
-        overhead_plot(data, setup, pdir, metric="total_size")
+            overhead_plot(data, setup, pdir, metric="duration")
+            overhead_plot(data, setup, pdir, metric="total_size")
 
 
 if __name__ == '__main__':
