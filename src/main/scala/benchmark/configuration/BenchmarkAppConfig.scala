@@ -1,8 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
+import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
+import provenance.storage.StorageFormat
+
 import com.typesafe.config.ConfigRenderOptions
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphAlgorithm.GraphAlgorithm
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.ExperimentSetup.ExperimentSetup
 import pureconfig._
 import pureconfig.generic.auto._
 
@@ -17,6 +20,8 @@ case class BenchmarkAppConfig(
     algorithm: GraphAlgorithm,
     // Run number
     runNr: Long,
+    // Storage format
+    storageFormat: StorageFormat,
     // Directory to store results (local filesystem)
     outputDir: os.Path,
     // Graphalytics benchmark configuration
@@ -24,7 +29,7 @@ case class BenchmarkAppConfig(
     // Path where to storage lineage
     lineageDir: String,
     // Experiment setup
-    setup: String
+    setup: ExperimentSetup
 ) {
   override def toString(): String = {
     val sb = new StringBuilder()
@@ -46,6 +51,18 @@ object BenchmarkAppConfig {
   implicit val graphAlgorithmConverter: ConfigConvert[GraphAlgorithm] =
     ConfigConvert[String].xmap(
       GraphAlgorithm.withName,
+      _.toString
+    )
+
+  implicit val experimentSetupConverter: ConfigConvert[ExperimentSetup] =
+    ConfigConvert[String].xmap(
+      ExperimentSetup.withName,
+      _.toString
+    )
+
+  implicit val storageFormatConverter: ConfigConvert[StorageFormat] =
+    ConfigConvert[String].xmap(
+      StorageFormat.fromString,
       _.toString
     )
 

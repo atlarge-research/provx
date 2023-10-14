@@ -17,7 +17,7 @@ class ConfigFilesTest extends AnyFunSuite {
       case Right(config) => config
     }
 
-    assert(source.algorithms.length == 6)
+    assert(source.algorithms.toList.length == 6)
     assert(source.bfs.get.sourceVertex == 1)
     assert(source.pr.get.numIterations == 2)
   }

@@ -1,16 +1,13 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.configuration.{
-  BenchmarkAppConfig,
-  GraphAlgorithm,
-  GraphalyticsConfig,
-  RunnerConfig,
-  RunnerConfigData
-}
+import benchmark.configuration._
+import benchmark.configuration.BenchmarkAppConfig.write
+import benchmark.configuration.ExperimentSetup.{ExperimentSetup, StorageFormats}
+import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import benchmark.utils._
+import provenance.storage._
 
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.BenchmarkAppConfig.write
 import mainargs.{arg, main, ParserForClass}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -23,7 +20,8 @@ import java.util.concurrent.TimeUnit
 object Runner {
   import utils.CustomCLIArgs._
 
-  type ExperimentTuple = (String, String, String, Int)
+  type ExperimentTuple =
+    (String, GraphAlgorithm, ExperimentSetup, StorageFormat, Int)
 
   @main
   case class Config(
@@ -90,14 +88,10 @@ object Runner {
           experimentID = experimentID.toString,
           dataset = v._1,
           datasetPath = runnerConfig.datasetPath,
-          algorithm = v._2 match {
-            case "bfs"  => GraphAlgorithm.BFS
-            case "pr"   => GraphAlgorithm.PageRank
-            case "sssp" => GraphAlgorithm.SSSP
-            case "wcc"  => GraphAlgorithm.WCC
-          },
+          algorithm = v._2,
           setup = v._3,
-          runNr = v._4,
+          storageFormat = v._4,
+          runNr = v._5,
           outputDir = currentExperimentPath / s"experiment-${experimentID}",
           graphalyticsConfigPath =
             s"${runnerConfig.datasetPath}/${v._1}.properties",
@@ -224,8 +218,9 @@ object Runner {
 
         (
           params("dataset").str,
-          params("algorithm").str.toLowerCase,
-          params("setup").str,
+          GraphAlgorithm.withName(params("algorithm").str),
+          ExperimentSetup.withName(params("setup").str),
+          StorageFormat.fromString(params("storageFormat").str),
           params("runNr").str.toInt
         )
       })
@@ -244,16 +239,17 @@ object Runner {
 
         (
           config(1), // dataset
-          config(0).replace("()", ""), // algorithm
-          config(2).toLowerCase(), // configuration
-          config(3).toInt
+          GraphAlgorithm.withName(config(0).replace("()", "")), // algorithm
+          ExperimentSetup.withName(config(2)), // configuration
+          StorageFormat.fromString(config(3)),
+          config(4).toInt
         )
       })
 
-    val remainingConfigurations: Set[(String, String, String, Int)] =
+    val remainingConfigurations: Set[ExperimentTuple] =
       allConfigurations.toSet &~ (successfulConfigurations.toSet ++ failedConfigurations.toSet)
 
-    remainingConfigurations.toList.sortWith((t1, t2) => t1._3 < t2._3)
+    remainingConfigurations.toList
   }
 
   def startupChecks(runnerConfig: RunnerConfigData): Long = {
@@ -287,18 +283,28 @@ object Runner {
         GraphalyticsConfig
           .loadHadoop(s"${benchmarkConfig.datasetPath}/${dataset}.properties")
           .algorithms
-          .toSet
-          .intersect(benchmarkConfig.algorithms.map(_.toLowerCase()).toSet)
+          .intersect(benchmarkConfig.algorithms)
           .map(algorithm => (dataset, algorithm))
       })
       .flatMap(v => {
         benchmarkConfig.setups
-          .map(v => v.toString)
-          .toSet
-          .map((es: String) => (v._1, v._2, es))
+          .filterNot(_ == ExperimentSetup.StorageFormats)
+          .map(es => (v._1, v._2, es, TextFile())) ++
+          Seq(
+            TextFile(),
+            ObjectFile(),
+            ParquetFile(),
+            AvroFile(),
+            ORCFile(),
+            CSVFile(),
+            JSONFormat(),
+            // Compressible formats
+            TextFile(true),
+            CSVFile(true),
+            JSONFormat(true)
+          ).map(fmt => (v._1, v._2, ExperimentSetup.StorageFormats, fmt))
       })
-      .flatMap(v => runs.map(r => (v._1, v._2, v._3, r)))
-      .sortWith((lhs, rhs) => lhs._3 < rhs._3)
+      .flatMap(v => runs.map(r => (v._1, v._2, v._3, v._4, r)))
   }
 
   def main(args: Array[String]): Unit = {

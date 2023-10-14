@@ -60,14 +60,8 @@ object Benchmark {
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
-    val expSetup = ExperimentSetup.values.find(_.toString == description.setup)
-    if (expSetup.isEmpty) {
-      println("Unknown experiment setup! Quitting...")
-      return ((), 0)
-    }
-
     val (tracingEnabled, storageEnabled, compressionEnabled) =
-      computeFlags(expSetup.get)
+      computeFlags(description.setup)
 
     val parametersDescription = write(description)
     val parameters = ujson.read(parametersDescription)
@@ -93,17 +87,17 @@ object Benchmark {
     ProvenanceContext.setStorageHandler(
       new HDFSStorageHandler(
         description.lineageDir,
-        format = TextFile(compressionEnabled)
+        format = description.storageFormat
       )
     )
 
     val filteredGL = gl.capture(
       provenanceFilter = ProvenancePredicate(
         nodePredicate = ProvenanceGraph.allNodes,
-        edgePredicate = provenanceFilter(expSetup.get)
+        edgePredicate = provenanceFilter(description.setup)
       ),
       dataFilter = DataPredicate(
-        nodePredicate = dataFilter(expSetup.get, description.algorithm)
+        nodePredicate = dataFilter(description.setup, description.algorithm)
       )
     )
 
@@ -133,7 +127,7 @@ object Benchmark {
       )
       .map((n: ProvenanceGraph.Type#NodeT) => n.outer.g)
 
-    val sizes = dataGraphs.map((g) => {
+    val sizes = dataGraphs.map(g => {
       val size = g.storageLocation match {
         case Some(loc) =>
           loc match {
@@ -188,7 +182,7 @@ object Benchmark {
       "metrics" -> sortedMetrics
     )
 
-    if (description.setup != ExperimentSetup.Baseline.toString) {
+    if (description.setup != ExperimentSetup.Baseline) {
       outputs("lineageDirectory") = description.lineageDir
     }
 
@@ -274,7 +268,7 @@ object Benchmark {
     }
   }
 
-  def fileSize(sparkSession: SparkSession, path: String): Long = {
+  private def fileSize(sparkSession: SparkSession, path: String): Long = {
     val p = new Path(path)
     val fs = p.getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
     val summary = fs.getContentSummary(p)

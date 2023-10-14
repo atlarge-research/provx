@@ -11,6 +11,7 @@ import provenance.{ProvenanceGraph, ProvenanceGraphNode}
 import provenance.events.{BFS, Operation}
 import provenance.metrics.ObservationSet
 
+import lu.magalhaes.gilles.provxlib.provenance.storage.TextFile
 import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
 import org.apache.spark.graphx.{Edge, Graph}
 import org.scalatest.funsuite.AnyFunSuite
@@ -56,10 +57,11 @@ class BenchmarkTests extends AnyFunSuite {
           datasetPath = datasetPath,
           algorithm = GraphAlgorithm.BFS,
           runNr = 1,
+          storageFormat = TextFile(),
           outputDir = outputDir,
           graphalyticsConfigPath = graphalyticsConfigPath,
           lineageDir = runnerConfig.runner.lineagePath,
-          setup = "Baseline"
+          setup = ExperimentSetup.Baseline
         )
       )
       Benchmark.run(sc, config)

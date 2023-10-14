@@ -1,6 +1,9 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
+import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
+import benchmark.utils.TextUtils
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import pureconfig._
@@ -23,7 +26,7 @@ case class SSSP(weightProperty: String, sourceVertex: Int)
 case class WCC()
 
 case class GraphConfig(
-    algorithms: List[String],
+    algorithms: Set[GraphAlgorithm],
     vertexFile: String,
     edgeFile: String,
     meta: Meta,
@@ -44,8 +47,10 @@ case class GraphalyticsConfigData(
 )
 
 object GraphalyticsConfig extends ConfigLoader[GraphConfig] {
-  implicit val stringListReader: ConfigReader[List[String]] =
-    ConfigReader[String].map(_.split(",").toList.map(_.trim))
+  implicit val graphAlgorithmConverter: ConfigReader[Set[GraphAlgorithm]] =
+    ConfigReader[String].map(
+      TextUtils.toStringsList(_).map(GraphAlgorithm.fromString).toSet
+    )
 
   def loadHadoop(
       path: String
@@ -61,6 +66,7 @@ object GraphalyticsConfig extends ConfigLoader[GraphConfig] {
     val contents = Source.fromInputStream(in).mkString
     in.close()
 
+    // Necessary to convince PureConfig that Graphalytics configuration files are in properties format.
     val filename = createTempPropertiesFile(contents)
 
     loadFile(filename) match {

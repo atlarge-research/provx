@@ -1,23 +1,25 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
+import benchmark.configuration.ExperimentSetup.ExperimentSetup
+import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
+import benchmark.utils.TextUtils
+
 import com.typesafe.config.ConfigRenderOptions
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.ExperimentSetup.ExperimentSetup
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.generic.ProductHint
 import pureconfig.ConfigReader.Result
 
 import java.text.SimpleDateFormat
-import java.util.{Calendar, Properties}
+import java.util.Calendar
 
 case class RunnerParameters(
     // Inputs
     // Number of repetitions for algorithm and dataset combination
     repetitions: Int,
-    // Algorithms to run (BFS, PR, WCC, SSP, LCC, PR)
-    // TODO: read these in as lowercase
-    algorithms: List[String],
+    // Algorithms to run
+    algorithms: Set[GraphAlgorithm],
     // Name of the graphs to run experiments for
     graphs: List[String],
     // Where the graphs are stored on HDFS
@@ -25,7 +27,7 @@ case class RunnerParameters(
     // Where to store metrics and execution logs
     experimentsPath: String,
     // Which experiment setups to run
-    setups: List[ExperimentSetup],
+    setups: Set[ExperimentSetup],
     // Outputs (HDFS)
     // Where to store the lineage information
     lineagePath: String,
@@ -49,34 +51,33 @@ case class RunnerConfigData(
     println(s"Output  path: ${runner.outputPath}")
     println(s"Repetitions : ${runner.repetitions}")
     println(s"Graphs:     : ${runner.graphs.toSet.mkString(", ")}")
-    println(s"Algorithms  : ${runner.algorithms.toSet.mkString(", ")}")
-    println(s"Setups      : ${runner.setups.toSet.mkString(", ")}")
+    println(s"Algorithms  : ${runner.algorithms.mkString(", ")}")
+    println(s"Setups      : ${runner.setups.mkString(", ")}")
   }
 }
 
 object RunnerConfig extends ConfigLoader[RunnerConfigData] {
-  implicit val stringListReader: ConfigReader[List[String]] =
-    ConfigReader[String].map(
-      _.split(",").toList
-        .map(_.trim)
-        .filterNot(_.startsWith("#"))
-        .filterNot(_.isEmpty)
+  implicit val stringListRW: ConfigConvert[List[String]] =
+    ConfigConvert[String].xmap(
+      TextUtils.toStringsList,
+      _ mkString (", ")
     )
 
-  implicit val experimentSetupReader: ConfigReader[List[ExperimentSetup]] =
-    ConfigReader[String].map(
-      _.split(",").toList
-        .map(_.trim)
-        .filterNot(_.startsWith("#"))
-        .filterNot(_.isEmpty)
-        .map(v => ExperimentSetup.withName(v.trim))
+  implicit val experimentSetupRW: ConfigConvert[Set[ExperimentSetup]] =
+    ConfigConvert[String].xmap(
+      TextUtils
+        .toStringsList(_)
+        .map(ExperimentSetup.withName)
+        .toSet,
+      _.map(_.toString).mkString(", ")
     )
 
-  implicit val stringListWriter: ConfigWriter[List[String]] =
-    ConfigWriter[String].contramap[List[String]](_.mkString(", "))
-
-  implicit val experimentSetupWriter: ConfigWriter[List[ExperimentSetup]] =
-    ConfigWriter[String].contramap[List[ExperimentSetup]](
+  implicit val graphAlgorithmConverter: ConfigConvert[Set[GraphAlgorithm]] =
+    ConfigConvert[String].xmap(
+      TextUtils
+        .toStringsList(_)
+        .map(GraphAlgorithm.withName)
+        .toSet,
       _.map(_.toString).mkString(", ")
     )
 

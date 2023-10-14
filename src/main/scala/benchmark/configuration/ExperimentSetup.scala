@@ -4,6 +4,8 @@ package benchmark.configuration
 object ExperimentSetup extends Enumeration {
   type ExperimentSetup = Value
   val
+  // Explore different storage formats (tradeoff compute(=compression)/storage)
+  StorageFormats,
   // Storage on, compression on
   Compression,
   // Storage on, compression off
