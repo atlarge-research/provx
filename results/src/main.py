@@ -238,7 +238,68 @@ def overhead_plot(raw_data, configuration, output_dir: Path, metric="duration", 
     plt.close()
 
 
+def scaleup_plots():
+    path = Path(__file__).parent.parent / "data" / "das5" / "20231022-010000-scaleup-m-size"
+    results = parse_experiment_output(path)
+
+    single_perf_data = {}
+    performance_data = {}
+    for (algorithm, dataset, executors), values in results["baseline"].items():
+        if executors == 1:
+            single_perf_data[(algorithm, dataset)] = values
+        key = (algorithm, dataset)
+        if key not in performance_data:
+            performance_data[key] = {}
+        performance_data[key][executors] = values[0]['duration']
+
+    # Calculate speedup and plot
+    for (algorithm, dataset), durations in performance_data.items():
+        executors = sorted(durations.keys())
+        speedups = [single_perf_data[(algorithm, dataset)][0]["duration"] / durations[nr] for nr in executors]
+
+        plt.plot(executors, speedups, label=f"{algorithm} ({dataset})")
+        
+    plt.xlabel("Number of Executors")
+    plt.ylabel("Speedup")
+    plt.title("Speedup for Various Algorithms and Datasets")
+    plt.legend()
+    plt.show()
+
+def parse_experiment_output(root_folder):
+    input_files = sorted(root_folder.glob("experiment-*/provenance/inputs.json"))
+    output_files = sorted(root_folder.glob("experiment-*/provenance/outputs.json"))
+    provenance_results = [
+        Model(
+            inputs=json.loads(f.read_text()),
+            outputs=json.loads(output_files[idx].read_text())
+        ) for idx, f in enumerate(input_files)
+    ]
+
+    data = {}
+    for r in provenance_results:
+        algorithm = r.inputs.parameters.algorithm
+        dataset = r.inputs.parameters.dataset
+        config = r.inputs.parameters.setup.lower()
+        nr_executors = r.inputs.parameters.executorCount - 1 # without driver
+        if config not in data:
+            data[config] = {}
+        c = data[config]
+        k = (algorithm, dataset, nr_executors)
+        if c.get(k) is None:
+            c[k] = []
+        total_size = sum([l.size for l in r.outputs.sizes.individual])
+        c[k].append({
+            "run": r.inputs.parameters.runNr,
+            "duration": r.outputs.duration.amount / 10**9, # in seconds
+            "output_size": r.outputs.sizes.total,
+            "total_size": (total_size if config != "baseline" else r.outputs.sizes.total),
+            "nr_executors": r.inputs.parameters.executorCount - 1 # without driver
+        })
+    return data
+
 def main():
+    scaleup_plots()
+    return
     cluster_dirs = list([d for d in results_dir.iterdir() if d.is_dir()])
     for cluster_dir in cluster_dirs:
         experiments_dirs = list([d for d in cluster_dir.iterdir() if d.is_dir()])

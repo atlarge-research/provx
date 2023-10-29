@@ -8,6 +8,7 @@ import com.typesafe.config.ConfigRenderOptions
 import lu.magalhaes.gilles.provxlib.benchmark.configuration.ExperimentSetup.ExperimentSetup
 import pureconfig._
 import pureconfig.generic.auto._
+import pureconfig.generic.ProductHint
 
 case class BenchmarkAppConfig(
     // Experiment identifier
@@ -65,6 +66,9 @@ object BenchmarkAppConfig {
       StorageFormat.fromString,
       _.toString
     )
+
+  implicit def productHint[T] =
+    ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
 
   def loadString(contents: String): ConfigReader.Result[BenchmarkAppConfig] =
     ConfigSource.string(contents).load[BenchmarkAppConfig]

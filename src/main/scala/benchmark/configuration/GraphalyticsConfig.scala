@@ -31,7 +31,7 @@ case class GraphConfig(
     edgeFile: String,
     meta: Meta,
     directed: Boolean,
-    edgeProperties: EdgeProperties,
+    edgeProperties: Option[EdgeProperties],
     bfs: Option[BFS],
     cdlp: Option[CDLP],
     lcc: Option[LCC],
@@ -75,6 +75,8 @@ object GraphalyticsConfig extends ConfigLoader[GraphConfig] {
       case Right(value) => value
     }
   }
+
+  override def extension(): String = ".properties"
 
   def load(
       configSource: ConfigSource

@@ -2,18 +2,22 @@ from typing import List
 from pydantic import BaseModel
 
 class Parameters(BaseModel):
-    id: str
+    id: str | None
+    experimentID: str | None
     dataset: str
     algorithm: str
     runNr: int
     outputDir: str
-    configPath: str
+    configPath: str | None
+    graphalyticsConfigPath: str | None
     lineageDir: str
     setup: str
     tracingEnabled: bool
     storageEnabled: bool
+    storageFormat: str | None
     # compressionEnabled: bool
     applicationId: str
+    executorCount: int
 
 
 class Inputs(BaseModel):

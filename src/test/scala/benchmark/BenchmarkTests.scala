@@ -22,7 +22,7 @@ class BenchmarkTests extends AnyFunSuite {
   test("Benchmark test") {
     withSparkSession { sc =>
       val runnerConfig =
-        RunnerConfig.loadResource("runner-config-example.properties") match {
+        RunnerConfig.loadResource("runner-config-example.conf") match {
           case Left(errors) =>
             fail(s"Could not load configuration: ${errors}")
           case Right(value) => value

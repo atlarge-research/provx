@@ -144,6 +144,7 @@ object Runner {
             .directory(directory)
             .setAppResource(runnerConfig.jar)
             .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
+            .addSparkArg("--packages", "org.apache.spark:spark-avro_2.13:3.3.2")
             .addAppArgs(appArgs: _*)
             .redirectOutput(outputFile)
             .redirectError(errorFile)
@@ -185,7 +186,12 @@ object Runner {
               Console.GREEN + f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}" + Console.RESET
             )
             NtfyNotifier.notify(
-              s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.runNr}",
+              experiment.setup match {
+                case StorageFormats =>
+                  s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.storageFormat}/${experiment.runNr}"
+                case _ =>
+                  s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.runNr}"
+              },
               f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}",
               emoji = Some("hourglass_flowing_sand")
             )
@@ -296,19 +302,21 @@ object Runner {
           .flatMap(es => {
             es match {
               case StorageFormats =>
-                Seq(
-                  TextFile(),
-                  ObjectFile(),
-                  ParquetFile(),
-                  AvroFile(),
-                  ORCFile(),
-                  CSVFile(),
-                  JSONFormat(),
-                  // Compressible formats
-                  TextFile(true),
-                  CSVFile(true),
-                  JSONFormat(true)
-                ).map(fmt => (v._1, v._2, ExperimentSetup.StorageFormats, fmt))
+                benchmarkConfig.storageFormats
+//                Seq(
+//                  TextFile(),
+//                  ObjectFile(),
+//                  ParquetFile(),
+//                  AvroFile(),
+//                  ORCFile(),
+//                  CSVFile(),
+//                  JSONFormat(),
+//                  // Compressible formats
+//                  TextFile(true),
+//                  CSVFile(true),
+//                  JSONFormat(true)
+//                )
+                  .map(fmt => (v._1, v._2, ExperimentSetup.StorageFormats, fmt))
               case Compression =>
                 Seq((v._1, v._2, ExperimentSetup.Compression, TextFile(true)))
               case es: ExperimentSetup =>

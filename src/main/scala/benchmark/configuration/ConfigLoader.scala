@@ -19,7 +19,7 @@ trait ConfigLoader[T] {
   def createTempPropertiesFile(contents: String): String = {
     val f = File.createTempFile(
       System.getProperty("java.io.tmpdir") + "configuration-",
-      ".properties"
+      extension()
     )
     f.deleteOnExit()
     new PrintWriter(f) {
@@ -31,6 +31,8 @@ trait ConfigLoader[T] {
     }
     f.getAbsolutePath
   }
+
+  def extension(): String
 
   def load(configSource: ConfigSource): ConfigReader.Result[T]
 }

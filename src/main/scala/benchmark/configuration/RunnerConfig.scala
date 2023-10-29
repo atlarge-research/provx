@@ -1,11 +1,12 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
-import benchmark.configuration.ExperimentSetup.ExperimentSetup
+import benchmark.configuration.ExperimentSetup.{ExperimentSetup, Storage}
 import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import benchmark.utils.TextUtils
 
 import com.typesafe.config.ConfigRenderOptions
+import lu.magalhaes.gilles.provxlib.provenance.storage.StorageFormat
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.generic.ProductHint
@@ -28,6 +29,8 @@ case class RunnerParameters(
     experimentsPath: String,
     // Which experiment setups to run
     setups: Set[ExperimentSetup],
+    // Storage formats
+    storageFormats: Set[StorageFormat],
     // Outputs (HDFS)
     // Where to store the lineage information
     lineagePath: String,
@@ -57,32 +60,28 @@ case class RunnerConfigData(
 }
 
 object RunnerConfig extends ConfigLoader[RunnerConfigData] {
-  implicit val stringListRW: ConfigConvert[List[String]] =
-    ConfigConvert[String].xmap(
-      TextUtils.toStringsList,
-      _ mkString (", ")
-    )
-
   implicit val experimentSetupRW: ConfigConvert[Set[ExperimentSetup]] =
-    ConfigConvert[String].xmap(
-      TextUtils
-        .toStringsList(_)
-        .map(ExperimentSetup.withName)
-        .toSet,
-      _.map(_.toString).mkString(", ")
+    ConfigConvert[List[String]].xmap(
+      _.map(ExperimentSetup.withName).toSet,
+      _.map(_.toString).toList
     )
 
   implicit val graphAlgorithmConverter: ConfigConvert[Set[GraphAlgorithm]] =
-    ConfigConvert[String].xmap(
-      TextUtils
-        .toStringsList(_)
-        .map(GraphAlgorithm.withName)
-        .toSet,
-      _.map(_.toString).mkString(", ")
+    ConfigConvert[List[String]].xmap(
+      _.map(GraphAlgorithm.withName).toSet,
+      _.map(_.toString).toList
+    )
+
+  implicit val storageFormatsConverter: ConfigConvert[Set[StorageFormat]] =
+    ConfigConvert[List[String]].xmap(
+      _.map(StorageFormat.fromString).toSet,
+      _.map(_.toString).toList
     )
 
   implicit def hint[T]: ProductHint[T] =
     ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
+
+  override def extension(): String = ".conf"
 
   def currentExperimentDir(experimentsPath: String): os.Path = {
     val now = Calendar.getInstance().getTime
