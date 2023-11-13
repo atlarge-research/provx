@@ -13,6 +13,7 @@ case class BFS(source: Long) extends Algorithm
 case class PageRank(numIter: Int, dampingFactor: Double = 0.85)
     extends Algorithm
 case class WCC(maxIterations: Int = Int.MaxValue) extends Algorithm
+case class LCC() extends Algorithm
 
 case class SSSP(source: VertexId) extends Algorithm
 

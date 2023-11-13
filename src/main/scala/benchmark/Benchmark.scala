@@ -1,9 +1,14 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.ExperimentParameters.{BFS, PageRank, SSSP, WCC}
+import benchmark.configuration.{
+  BenchmarkAppConfig,
+  ExperimentSetup,
+  GraphAlgorithm
+}
+import benchmark.configuration.ExperimentSetup.ExperimentSetup
 import benchmark.utils.{GraphUtils, TimeUtils}
-import provenance.{GraphLineage, ProvenanceContext, ProvenanceGraph}
+import provenance.{ProvenanceContext, ProvenanceGraph}
 import provenance.GraphLineage.graphToGraphLineage
 import provenance.metrics.JSONSerializer
 import provenance.query.{DataPredicate, ProvenancePredicate}
@@ -13,12 +18,7 @@ import provenance.storage.{
   HDFSStorageHandler,
   TextFile
 }
-
-import lu.magalhaes.gilles.provxlib.provenance.ProvenanceGraph.Relation
-import mainargs.{arg, main, ParserForClass}
-import org.apache.hadoop.fs.Path
-import org.apache.spark.graphx.{EdgeTriplet, VertexId}
-import org.apache.spark.sql.SparkSession
+import provenance.ProvenanceGraph.Relation
 import provenance.events.{
   Operation,
   BFS => ETBFS,
@@ -27,24 +27,31 @@ import provenance.events.{
   WCC => ETWCC
 }
 
-import lu.magalhaes.gilles.provxlib.benchmark.ExperimentSetup.ExperimentSetup
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphalyticsConfiguration
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.BenchmarkAppConfig.write
+import lu.magalhaes.gilles.provxlib.benchmark.configuration.GraphAlgorithm.GraphAlgorithm
+import mainargs.{arg, main, ParserForClass}
+import org.apache.hadoop.fs.Path
+import org.apache.spark.graphx.VertexId
+import org.apache.spark.sql.SparkSession
 
 object Benchmark {
-  import utils.CustomCLIArguments._
+  import utils.CustomCLIArgs._
 
   @main
   case class Config(
       @arg(name = "config", doc = "Graphalytics benchmark configuration")
-      description: ExperimentDescription
+      config: BenchmarkAppConfig
   )
 
   def run(spark: SparkSession, args: Config): (Unit, Long) = TimeUtils.timed {
-    val description = args.description
+    val description = args.config
     print(description)
 
-    val pathPrefix =
-      s"${description.benchmarkConfig.datasetPath}/${description.dataset}"
+    val provenanceDir = description.outputDir / "provenance"
+    os.makeDir.all(provenanceDir)
+
+    val pathPrefix = s"${args.config.datasetPath}/${description.dataset}"
+
     val (g, config) = GraphUtils.load(spark.sparkContext, pathPrefix)
     val gl = g.withLineage(spark)
 
@@ -53,56 +60,66 @@ object Benchmark {
     val fs = lineagePath.getFileSystem(spark.sparkContext.hadoopConfiguration)
     fs.mkdirs(lineagePath)
 
-    val expSetup = ExperimentSetup.values.find(_.toString == description.setup)
-    if (expSetup.isEmpty) {
-      println("Unknown experiment setup! Quitting...")
-      return ((), 0)
-    }
+    val (tracingEnabled, storageEnabled) =
+      computeFlags(description.setup)
 
-    val (tracingEnabled, storageEnabled, compressionEnabled) =
-      computeFlags(expSetup.get)
+    val parametersDescription = write(description)
+    val parameters = ujson.read(parametersDescription)
+    parameters("applicationId") = spark.sparkContext.applicationId
+    parameters("tracingEnabled") = tracingEnabled
+    parameters("storageEnabled") = storageEnabled
+    parameters("executorCount") =
+      spark.sparkContext.getExecutorMemoryStatus.keys.toList.length
 
+    val inputs = ujson.Obj(
+      "config" -> GraphUtils.configPath(pathPrefix),
+      "vertices" -> GraphUtils.verticesPath(pathPrefix),
+      "edges" -> GraphUtils.edgesPath(pathPrefix),
+      "parameters" -> parameters
+    )
+
+    os.write(provenanceDir / "inputs.json", inputs)
+
+    // Setup provenance configuration
     ProvenanceContext.tracingStatus.set(tracingEnabled)
     ProvenanceContext.storageStatus.set(storageEnabled)
 
     ProvenanceContext.setStorageHandler(
       new HDFSStorageHandler(
         description.lineageDir,
-        format = TextFile(compressionEnabled)
+        format = description.storageFormat
       )
     )
 
     val filteredGL = gl.capture(
       provenanceFilter = ProvenancePredicate(
         nodePredicate = ProvenanceGraph.allNodes,
-        edgePredicate = provenanceFilter(expSetup.get)
+        edgePredicate = provenanceFilter(description.setup)
       ),
       dataFilter = DataPredicate(
-        nodePredicate = dataFilter(expSetup.get, description.algorithm)
+        nodePredicate = dataFilter(description.setup, description.algorithm)
       )
     )
 
+    // Run algorithm
     val (_, elapsedTime) = TimeUtils.timed {
       description.algorithm match {
-        case BFS() => filteredGL.bfs(config.bfsSourceVertex())
-        case PageRank() =>
-          filteredGL.pageRank(numIter = config.pageRankIterations())
-        case SSSP() => filteredGL.sssp(config.ssspSourceVertex())
-        case WCC()  => filteredGL.wcc()
-        // case "lcc" => gl.lcc()
-        // case "cdlp" => Some(gl.cdlp())
-        case _ => throw new NotImplementedError("unknown graph algorithm")
+        case GraphAlgorithm.BFS =>
+          filteredGL.bfs(config.bfs.get.sourceVertex)
+        case GraphAlgorithm.PageRank =>
+          filteredGL.pageRank(numIter = config.pr.get.numIterations)
+        case GraphAlgorithm.SSSP =>
+          filteredGL.sssp(config.sssp.get.sourceVertex)
+        case GraphAlgorithm.WCC => filteredGL.wcc()
       }
     }
     println(s"Run took ${TimeUtils.formatNanoseconds(elapsedTime)}")
 
     val resultsPath =
-      s"${description.benchmarkConfig.outputPath}/experiment-${description.experimentID}/vertices.txt"
+      s"${description.outputDir}/experiment-${description.experimentID}/vertices.txt"
     filteredGL.vertices.saveAsTextFile(resultsPath)
 
     val resultsSize = fileSize(spark, resultsPath)
-
-    os.makeDir.all(description.outputDir)
 
     val dataGraphs = ProvenanceContext.graph.graph.nodes
       .filter((n: ProvenanceGraph.Type#NodeT) =>
@@ -110,7 +127,7 @@ object Benchmark {
       )
       .map((n: ProvenanceGraph.Type#NodeT) => n.outer.g)
 
-    val sizes = dataGraphs.map((g) => {
+    val sizes = dataGraphs.map(g => {
       val size = g.storageLocation match {
         case Some(loc) =>
           loc match {
@@ -149,11 +166,6 @@ object Benchmark {
     val sortedMetrics =
       metrics.toList.sortWith((l, r) => l("graphID").num < r("graphID").num)
 
-    val parameters = ExperimentDescriptionSerializer.serialize(description)
-    parameters("applicationId") = spark.sparkContext.applicationId
-    parameters("tracingEnabled") = tracingEnabled
-    parameters("storageEnabled") = storageEnabled
-
     val outputs = ujson.Obj(
       "stdout" -> (description.outputDir / "stdout.log").toString,
       "stderr" -> (description.outputDir / "stderr.log").toString,
@@ -170,32 +182,22 @@ object Benchmark {
       "metrics" -> sortedMetrics
     )
 
-    if (description.setup != ExperimentSetup.Baseline.toString) {
+    if (description.setup != ExperimentSetup.Baseline) {
       outputs("lineageDirectory") = description.lineageDir
     }
 
-    val provenance = ujson.Obj(
-      "inputs" -> ujson.Obj(
-        "config" -> GraphUtils.configPath(pathPrefix),
-        "vertices" -> GraphUtils.verticesPath(pathPrefix),
-        "edges" -> GraphUtils.edgesPath(pathPrefix),
-        "parameters" -> parameters
-      ),
-      "outputs" -> outputs
-    )
+    os.write(provenanceDir / "outputs.json", outputs)
 
     os.write(
       description.outputDir / "graph.dot",
       ProvenanceContext.graph.toDot()
     )
 
-    os.write(description.outputDir / "provenance.json", provenance)
-
     // Clean up lineage folder after being done with it
     fs.delete(lineagePath, true)
   }
 
-  def computeFlags(expSetup: ExperimentSetup): (Boolean, Boolean, Boolean) = {
+  def computeFlags(expSetup: ExperimentSetup): (Boolean, Boolean) = {
     val tracingEnabled = expSetup match {
       case ExperimentSetup.Baseline => false
       case _                        => true
@@ -207,38 +209,30 @@ object Benchmark {
       case _                        => true
     }
 
-    val compressionFlag = expSetup match {
-      case ExperimentSetup.Compression => true
-      case ExperimentSetup.Combined    => true
-      case _                           => false
-    }
-
-    (tracingEnabled, storageEnabled, compressionFlag)
+    (tracingEnabled, storageEnabled)
   }
 
   def dataFilter(
       experimentSetup: ExperimentSetup,
-      algorithm: ExperimentParameters.Algorithm
+      algorithm: GraphAlgorithm
   ): (VertexId, Any) => Boolean = {
     experimentSetup match {
       case ExperimentSetup.SmartPruning | ExperimentSetup.Combined =>
         algorithm match {
-          case WCC() | BFS() =>
+          case GraphAlgorithm.BFS | GraphAlgorithm.WCC =>
             (_: VertexId, value: Any) => {
               value.asInstanceOf[Long] != Long.MaxValue
             }
-          case PageRank() =>
+          case GraphAlgorithm.PageRank =>
             (_: VertexId, _: Any) => {
               // TODO: figure out how to filter PageRank
               // TODO: get previous generation and compare if change is more than a certain delta
               true
             }
-          case SSSP() =>
+          case GraphAlgorithm.SSSP =>
             (_: VertexId, value: Any) => {
               value.asInstanceOf[Double] != Double.PositiveInfinity
             }
-          case _ =>
-            throw new NotImplementedError("unknown graph algorithm")
         }
       case _ =>
         (_: VertexId, _: Any) => true
@@ -268,7 +262,7 @@ object Benchmark {
     }
   }
 
-  def fileSize(sparkSession: SparkSession, path: String): Long = {
+  private def fileSize(sparkSession: SparkSession, path: String): Long = {
     val p = new Path(path)
     val fs = p.getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
     val summary = fs.getContentSummary(p)
@@ -278,11 +272,11 @@ object Benchmark {
 
   def main(args: Array[String]): Unit = {
     val parsedArgs = ParserForClass[Config].constructOrExit(args.toIndexedSeq)
-    val description = parsedArgs.description
+    val config = parsedArgs.config
     val spark = SparkSession
       .builder()
       .appName(
-        s"ProvX ${description.algorithm}/${description.dataset}/${description.setup}/${description.runNr} benchmark"
+        s"ProvX ${config.algorithm}/${config.dataset}/${config.setup}/${config.runNr} benchmark"
       )
       .getOrCreate()
 

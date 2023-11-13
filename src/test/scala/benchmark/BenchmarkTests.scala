@@ -1,39 +1,67 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark
 
-import benchmark.configuration.BenchmarkConfig
-
-import lu.magalhaes.gilles.provxlib.benchmark.ExperimentParameters.{SSSP, WCC}
-import lu.magalhaes.gilles.provxlib.provenance.{
-  ProvenanceGraph,
-  ProvenanceGraphNode
+import benchmark.configuration.{
+  BenchmarkAppConfig,
+  ExperimentSetup,
+  GraphAlgorithm,
+  RunnerConfig
 }
-import lu.magalhaes.gilles.provxlib.provenance.events.{BFS, Operation}
-import lu.magalhaes.gilles.provxlib.provenance.metrics.ObservationSet
+import provenance.{ProvenanceGraph, ProvenanceGraphNode}
+import provenance.events.{BFS, Operation}
+import provenance.metrics.ObservationSet
+
+import lu.magalhaes.gilles.provxlib.provenance.storage.TextFile
 import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
 import org.apache.spark.graphx.{Edge, Graph}
 import org.scalatest.funsuite.AnyFunSuite
 
+import java.nio.file.Paths
+
 class BenchmarkTests extends AnyFunSuite {
   test("Benchmark test") {
     withSparkSession { sc =>
-      val configPath =
-        getClass.getResource(s"/example-config.properties").toString
-      //    val expectedOutput = getClass.getResource(s"/example-directed").toString
-      val benchmarkConfig = new BenchmarkConfig(configPath)
+      val runnerConfig =
+        RunnerConfig.loadResource("runner-config-example.conf") match {
+          case Left(errors) =>
+            fail(s"Could not load configuration: ${errors}")
+          case Right(value) => value
+        }
+
+      val dataset = "example-directed"
       val outputDir = os.Path("/tmp/test")
+
       os.remove.all(outputDir)
-      os.remove.all(os.Path(benchmarkConfig.outputPath.stripPrefix("file://")))
+      os.remove.all(
+        os.Path(runnerConfig.runner.outputPath.stripPrefix("file://"))
+      )
+
+      val graphalyticsConfigPath = Paths
+        .get(
+          getClass.getClassLoader
+            .getResource("example-directed.properties")
+            .toURI
+        )
+        .toFile
+        .getAbsolutePath
+
+      val datasetPath = graphalyticsConfigPath
+        .split("/")
+        .dropRight(1)
+        .mkString("/")
+
       val config = Benchmark.Config(
-        description = ExperimentDescription(
+        BenchmarkAppConfig(
           experimentID = "1",
-          dataset = "example-directed",
-          algorithm = ExperimentParameters.BFS(),
-          setup = ExperimentSetup.Storage.toString,
+          dataset = dataset,
+          datasetPath = datasetPath,
+          algorithm = GraphAlgorithm.BFS,
           runNr = 1,
+          storageFormat = TextFile(),
           outputDir = outputDir,
-          benchmarkConfig = benchmarkConfig,
-          lineageDir = benchmarkConfig.lineagePath
+          graphalyticsConfigPath = graphalyticsConfigPath,
+          lineageDir = runnerConfig.runner.lineagePath,
+          setup = ExperimentSetup.Baseline
         )
       )
       Benchmark.run(sc, config)
@@ -42,36 +70,36 @@ class BenchmarkTests extends AnyFunSuite {
 
   test("Benchmark flags computation") {
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Compression) == (true, true, true)
+      Benchmark.computeFlags(ExperimentSetup.Compression) == (true, true)
     )
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Storage) == (true, true, false)
+      Benchmark.computeFlags(ExperimentSetup.Storage) == (true, true)
     )
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Tracing) == (true, false, false)
+      Benchmark.computeFlags(ExperimentSetup.Tracing) == (true, false)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.SmartPruning
-      ) == (true, true, false)
+      ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.AlgorithmOpOnly
-      ) == (true, true, false)
+      ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.JoinVerticesOpOnly
-      ) == (true, true, false)
+      ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
         ExperimentSetup.Combined
-      ) == (true, true, true)
+      ) == (true, true)
     )
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Baseline) == (false, false, false)
+      Benchmark.computeFlags(ExperimentSetup.Baseline) == (false, false)
     )
   }
 
@@ -105,7 +133,8 @@ class BenchmarkTests extends AnyFunSuite {
 
       assert(
         g.subgraph(vpred =
-          Benchmark.dataFilter(ExperimentSetup.SmartPruning, WCC())
+          Benchmark
+            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.WCC)
         ).vertices
           .collect()
           .length == 1
@@ -113,7 +142,7 @@ class BenchmarkTests extends AnyFunSuite {
 
       assert(
         g.subgraph(vpred =
-          Benchmark.dataFilter(ExperimentSetup.Baseline, WCC())
+          Benchmark.dataFilter(ExperimentSetup.Baseline, GraphAlgorithm.WCC)
         ).vertices
           .collect()
           .length == 3
@@ -122,7 +151,8 @@ class BenchmarkTests extends AnyFunSuite {
       val g2 = Graph(doubleVertices, edges)
       assert(
         g2.subgraph(vpred =
-          Benchmark.dataFilter(ExperimentSetup.SmartPruning, SSSP())
+          Benchmark
+            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.SSSP)
         ).vertices
           .collect()
           .length == 1

@@ -3,40 +3,50 @@ package provenance.algorithms
 
 import provenance.GraphLineage
 
-import org.apache.spark.graphx.{EdgeContext, EdgeDirection, VertexId}
+import org.apache.spark.graphx.{EdgeContext, EdgeDirection, VertexId, VertexRDD}
 
+import java.util.concurrent.ConcurrentHashMap
+import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
 import scala.reflect.ClassTag
+import scala.collection.concurrent
 
-object LineageLCC {
+object LineageLCC extends Serializable {
 
   def run[VD: ClassTag, ED: ClassTag](
       gl: GraphLineage[VD, ED]
   ): GraphLineage[Double, Unit] = {
-    // Deduplicate the edges to ensure that every pair of connected vertices is
-    // compared exactly once. The value of an edge represents if the edge is
-    // unidirectional (1) or bidirectional (2) in the input graph.
     val canonicalGraph =
       gl.mapEdges(_ => 1).convertToCanonicalEdges(_ + _).cache()
 
     // Collect for each vertex a map of (neighbour, edge value) pairs in either
     // direction in the canonical graph
-    val neighboursPerVertex = canonicalGraph
-      .collectEdges(EdgeDirection.Either)
-      .mapValues((vid, edges) =>
-        edges.map(edge => (edge.otherVertexId(vid), edge.attr)).toMap
-      )
+    val neighboursPerVertex: VertexRDD[concurrent.Map[VertexId, Int]] =
+      canonicalGraph
+        .collectEdges(EdgeDirection.Either)
+        .mapValues((vid, edges) => {
+          val m = new ConcurrentHashMap[VertexId, Int]().asScala
+          edges
+            .foreach(edge => m.putIfAbsent(edge.otherVertexId(vid), edge.attr))
+          m
+        })
 
     // Attach the neighbourhood maps as values to the canonical graph
     val neighbourGraph = canonicalGraph
       .outerJoinVertices(neighboursPerVertex)((_, _, neighboursOpt) =>
-        neighboursOpt.getOrElse(Map[VertexId, Int]())
+        neighboursOpt.getOrElse(new ConcurrentHashMap[VertexId, Int]().asScala)
       )
       .cache()
     // Unpersist the original canonical graph
     canonicalGraph.unpersist()
 
     // Define the edge-based "map" function
-    def edgeToCounts(ctx: EdgeContext[Map[VertexId, Int], Int, Long]): Unit = {
+    def edgeToCounts(
+        ctx: EdgeContext[
+          scala.collection.concurrent.Map[VertexId, Int],
+          Int,
+          Long
+        ]
+    ): Unit = {
       var countSrc = 0L
       var countDst = 0L
       if (ctx.srcAttr.size < ctx.dstAttr.size) {
@@ -68,13 +78,18 @@ object LineageLCC {
       (a: Long, b: Long) => a + b
     )
     val triangleCountGraph =
-      neighbourGraph.outerJoinVertices(triangles)((_, _, triangleCountOpt) =>
-        triangleCountOpt.getOrElse(0L) / 2
-      )
+      neighbourGraph
+        .outerJoinVertices(triangles)((_, _, triangleCountOpt) =>
+          triangleCountOpt.getOrElse(0L) / 2
+        )
+        .cache()
 
     // Compute the number of neighbours each vertex has
     val neighbourCounts =
-      neighbourGraph.collectNeighbors(EdgeDirection.Either).mapValues(_.length)
+      neighbourGraph
+        .collectNeighbors(EdgeDirection.Either)
+        .mapValues(_.length)
+        .cache()
     val lccGraph = triangleCountGraph
       .outerJoinVertices(neighbourCounts)(
         (_, triangleCount, neighbourCountOpt) => {

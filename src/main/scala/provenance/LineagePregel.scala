@@ -1,7 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package provenance
 
-import provenance.events.{PregelAlgorithm, PregelIteration, PregelLifecycleStart}
+import provenance.events.{
+  PregelAlgorithm,
+  PregelIteration,
+  PregelLifecycleStart
+}
 import provenance.hooks.PregelHook
 import provenance.metrics.{Gauge, ObservationSet}
 
