@@ -54,9 +54,8 @@ export RUNNER_CONFIG := if exec_env == "local" {
 # Environment variables required for Spark setup
 @env:
   touch env
-  cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA_|SPARK_|HADOOP_)' | sed 's/^\*\s*//g' >> env
-  echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
-  echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+  cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA|SPARK|HADOOP)' | sed 's/^\*\s*//g' | sort -u > env
+  echo 'export PATH="$HADOOP_HOME/bin:$SPARK_HOME/bin:$PATH"' >> env
 
 # Copy graph datasets to HDFS
 copy: env
@@ -68,7 +67,7 @@ copy: env
     if hadoop fs -ls /graphs/$(basename $f) > /dev/null; then
       echo "File $(basename $f) exists, skipping..."
     else
-      echo Copying $(basename $f)...
+      echo "Copying $(basename $f)..."
       hadoop fs -copyFromLocal -f $f /graphs &
     fi
   done
@@ -172,7 +171,7 @@ download:
     if [ ! -f $dataset_path ]; then
       url=$base_url$dataset
       echo "Downloading $url"
-      echo wget -P $DOWNLOAD_DIR $url &
+      wget -P $DOWNLOAD_DIR $url &
     fi
   done
 
