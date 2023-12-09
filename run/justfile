@@ -43,9 +43,9 @@ export LOCAL_DATASET_DIR := if exec_env == "local" {
 export RUNNER_CONFIG := if exec_env == "local" {
   "/Users/gm/vu/thesis/impl/provxlib/run/config.local.properties"
 } else if exec_env == "das5" {
-  "/home/gmo520/provxlib/run/config.das5.properties"
+  "/home/gmo520/provxlib/run/config.das5.conf"
 } else if exec_env == "das6" {
-  "/home/gmo520/provxlib/run/config.das6.properties"
+  "/home/gmo520/provxlib/run/config.das6.conf"
 } else {
   error("unknown environment")
 }
@@ -53,15 +53,25 @@ export RUNNER_CONFIG := if exec_env == "local" {
 
 # Environment variables required for Spark setup
 @env:
-	cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA_SPARK_|HADOOP_)' | sed 's/^\*\s*//g' > env
-	echo 'export PATH="$HADOOP_HOME/bin:$PATH"' >> env
-	echo 'export PATH="$SPARK_HOME/bin:$PATH"' >> env
+  touch env
+  cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA|SPARK|HADOOP)' | sed 's/^\*\s*//g' | sort -u > env
+  echo 'export PATH="$HADOOP_HOME/bin:$SPARK_HOME/bin:$PATH"' >> env
 
 # Copy graph datasets to HDFS
 copy: env
-	#!/usr/bin/env bash
-	source ./env
-	hadoop fs -copyFromLocal $LOCAL_DATASET_DIR /graphs
+  #!/usr/bin/env bash
+  source ./env
+  files=$(just datasets | xargs -I{} find $LOCAL_DATASET_DIR -type f -name '{}*')
+  hadoop fs -mkdir -p /graphs
+  for f in $files; do
+    if hadoop fs -ls /graphs/$(basename $f) > /dev/null; then
+      echo "File $(basename $f) exists, skipping..."
+    else
+      echo "Copying $(basename $f)..."
+      hadoop fs -copyFromLocal -f $f /graphs &
+    fi
+  done
+  wait
 
 # DESTRUCTIVE: delete experiments directory
 clean-local: env
@@ -73,18 +83,18 @@ clean-local: env
 
 # Clean HDFS directories
 clean-hdfs: env
-	#!/usr/bin/env bash
-	source ./env
-	dirs=(
-	  /lineage
-	  /results
-	  /output
-	  /spark-logs
-	)
-	for dir in ${dirs[@]}; do
-	  hadoop fs -rm -r -f $dir
-	  hadoop fs -mkdir -p $dir
-	done
+  #!/usr/bin/env bash
+  source ./env
+  dirs=(
+    /lineage
+    /results
+    /output
+    /spark-logs
+  )
+  for dir in ${dirs[@]}; do
+    hadoop fs -rm -r -f $dir
+    hadoop fs -mkdir -p $dir
+  done
 
 clean: clean-hdfs #clean-local
 
@@ -95,73 +105,74 @@ setup: download decompress clean copy
 bench description: env
   #!/usr/bin/env bash
   source ./env
-  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "{{ description }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  exec 3>&1 4>&2
+  output=$(just provx "{{ description }}" 2> >(tee /dev/fd/4) | tee /dev/fd/3)
+  exec 3>&- 4>&-
   # post
-  ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
-  cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER
+  output_files=$(echo $output | grep 'RUNNER OUTPUT')
+  runner_stdout=$(echo $output_files | awk '{ print $3 }')
+  runner_stderr=$(echo $output_files | awk '{ print $4 }')
+  ARCHIVE_FOLDER=$(echo $output | grep 'Experiment path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
+  cp $runner_stdout $runner_stderr $ARCHIVE_FOLDER
 
 # Run benchmark
 dry: env
   #!/usr/bin/env bash
   source ./env
-  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "dry run" --dry-run true > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
+  just provx "dry run" --dry-run true
 
 # Resume benchmark
 resume date: env
   #!/usr/bin/env bash
   source ./env
   # Dry run benchmark to show which configurations will be run
-  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "dry run" --dry-run true --resume "{{ date }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
   read -n 1 -p "Continue? " bla
   spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "continue {{ date }}" --resume "{{ date }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
   # post
   ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
   cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER
 
+provx description *args:
+  #!/usr/bin/env bash
+  fid=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 4)
+  stdoutfile=runner-${fid}.stdout.log
+  stderrfile=runner-${fid}.stderr.log
+  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "{{description}}" {{args}} > >(tee $stdoutfile) 2> >(tee $stderrfile >&2)
+  echo RUNNER OUTPUT $stdoutfile $stderrfile
+
+datasets:
+  #!/usr/bin/env bash
+  grep -zPo 'graphs\s+=\s+\[[^\]]+\]' $RUNNER_CONFIG | sed '1d;$d' | awk '{$1=$1;print}' | grep -v '#' | sed '/^$/d'
 
 # Decompress compressed graph datasets
 decompress:
-	#!/bin/bash
+  #!/bin/bash
 
-	mkdir -p $LOCAL_DATASET_DIR
-	
-	for file in $DOWNLOAD_DIR/*.tar.zst; do
-		if [ ! -f $LOCAL_DATASET_DIR/$(basename $file .tar.zst).v ]; then
-			echo "Decompressing $file"
-			tar -C $LOCAL_DATASET_DIR --use-compress-program=unzstd -xvf $file &
-		fi
-	done
-	wait 
+  mkdir -p $LOCAL_DATASET_DIR
+
+  for file in $DOWNLOAD_DIR/*.tar.zst; do
+    if [ ! -f $LOCAL_DATASET_DIR/$(basename $file .tar.zst).v ]; then
+      echo "Decompressing $file"
+      tar -C $LOCAL_DATASET_DIR --use-compress-program=unzstd -xvf $file &
+    fi
+  done
+  wait
 
 # Download graph datasets from LDBC Graphalytics
 download:
-	#!/bin/bash
-	
-	base_url="https://pub-383410a98aef4cb686f0c7601eddd25f.r2.dev/graphalytics/"
+  #!/bin/bash
 
-	datasets=(
-		# XS datasets
-		#"kgs.tar.zst"
-		#"wiki-Talk.tar.zst"
-		#"cit-Patents.tar.zst"
-	
-		# S datasets
-		"datagen-7_5-fb.tar.zst"
-		"datagen-7_6-fb.tar.zst"
-		"datagen-7_7-zf.tar.zst"
-		"datagen-7_8-zf.tar.zst"
-		"datagen-7_9-fb.tar.zst"
-		"dota-league.tar.zst"
-		"graph500-22.tar.zst"
-	)
-	for dataset in ${datasets[@]}; do
-		dataset_path=$DOWNLOAD_DIR/$dataset
-		if [ ! -f $dataset_path ]; then
-			url=$base_url$dataset
-			echo "Downloading $url"
-			wget -P $DOWNLOAD_DIR $url &
-		fi
-	done
-	
-	wait 
+  base_url="https://pub-383410a98aef4cb686f0c7601eddd25f.r2.dev/graphalytics/"
 
+  datasets=$(just datasets | awk '{print $0 ".tar.zst"}')
+
+  for dataset in ${datasets[@]}; do
+    dataset_path=$DOWNLOAD_DIR/$dataset
+    if [ ! -f $dataset_path ]; then
+      url=$base_url$dataset
+      echo "Downloading $url"
+      wget -P $DOWNLOAD_DIR $url &
+    fi
+  done
+
+  wait
