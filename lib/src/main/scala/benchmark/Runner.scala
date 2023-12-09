@@ -141,6 +141,7 @@ object Runner {
 
         val ((app, expectedExit), elapsedTime) = TimeUtils.timed {
           val launcher = new SparkLauncher()
+            .setMaster("yarn")
             .directory(directory)
             .setAppResource(runnerConfig.jar)
             .setMainClass("lu.magalhaes.gilles.provxlib.benchmark.Benchmark")
@@ -154,6 +155,7 @@ object Runner {
             .setConf("spark.ui.prometheus.enabled", "true")
             .setConf("spark.eventLog.logStageExecutorMetrics", "true")
             .setConf("spark.metrics.executorMetricsSource.enabled", "true")
+            .setConf("spark.executor.cores", "48")
 //            .setConf("spark.driver.memory", "8G")
 //            .setConf("spark.executor.memory", "8G")
             .setVerbose(true)
@@ -161,7 +163,10 @@ object Runner {
 
           os.write(experiment.outputDir / "IN-PROGRESS", "")
 
-          val status = launcher.waitFor(30, TimeUnit.MINUTES)
+          val status = launcher.waitFor(
+            args.runnerConfig.runner.timeoutMinutes,
+            TimeUnit.MINUTES
+          )
           (launcher, status)
         }
 
@@ -185,13 +190,19 @@ object Runner {
             println(
               Console.GREEN + f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}" + Console.RESET
             )
+            val tuple = Seq(
+              experiment.algorithm.toString,
+              experiment.dataset,
+              experiment.setup.toString
+            )
             NtfyNotifier.notify(
-              experiment.setup match {
+              s"ProvX bench (${idx + 1}/${configurations.length}): ${tuple
+                .mkString("/")}/" + (experiment.setup match {
                 case StorageFormats =>
-                  s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.storageFormat}/${experiment.runNr}"
+                  s"${experiment.storageFormat}/"
                 case _ =>
-                  s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.runNr}"
-              },
+                  ""
+              }) + s"${experiment.runNr}",
               f"Took ${TimeUtils.formatNanoseconds(elapsedTime)}",
               emoji = Some("hourglass_flowing_sand")
             )

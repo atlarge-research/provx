@@ -79,8 +79,8 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
   val vertices: VertexRDD[VD] = graph.vertices
   val edges: EdgeRDD[ED] = graph.edges
 
-  val numVertices: VertexId = graph.numVertices
-  val outDegrees: VertexRDD[Int] = graph.outDegrees
+  def numVertices: VertexId = graph.numVertices
+  def outDegrees: VertexRDD[Int] = graph.outDegrees
 
   def mapVertices[VD2: ClassTag](
       f: (VertexId, VD) => VD2

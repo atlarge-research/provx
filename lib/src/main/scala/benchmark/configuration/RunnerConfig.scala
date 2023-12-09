@@ -39,7 +39,9 @@ case class RunnerParameters(
     // Where to store Spark event logs
     sparkLogs: String,
     // Location of benchmark jar
-    jar: String
+    jar: String,
+    // Benchmark timeout
+    timeoutMinutes: Long = 30
 )
 
 case class RunnerConfigData(
@@ -56,6 +58,10 @@ case class RunnerConfigData(
     println(s"Graphs:     : ${runner.graphs.toSet.mkString(", ")}")
     println(s"Algorithms  : ${runner.algorithms.mkString(", ")}")
     println(s"Setups      : ${runner.setups.mkString(", ")}")
+    println(
+      s"Max. timeout: ${runner.timeoutMinutes} minute${if (runner.timeoutMinutes != 1) { "s" }
+      else { "" }}"
+    )
   }
 }
 

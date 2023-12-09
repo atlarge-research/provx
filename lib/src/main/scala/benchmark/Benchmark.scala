@@ -44,6 +44,9 @@ object Benchmark {
   )
 
   def run(spark: SparkSession, args: Config): (Unit, Long) = TimeUtils.timed {
+    print(
+      s"Num executors: ${spark.sparkContext.getExecutorMemoryStatus.keys.toList.length}"
+    )
     val description = args.config
     print(description)
 
@@ -69,7 +72,7 @@ object Benchmark {
     parameters("tracingEnabled") = tracingEnabled
     parameters("storageEnabled") = storageEnabled
     parameters("executorCount") =
-      spark.sparkContext.getExecutorMemoryStatus.keys.toList.length
+      spark.sparkContext.getExecutorMemoryStatus.keys.toList.length - 1
 
     val inputs = ujson.Obj(
       "config" -> GraphUtils.configPath(pathPrefix),
