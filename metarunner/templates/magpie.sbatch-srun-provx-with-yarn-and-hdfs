@@ -41,17 +41,17 @@
 # delete the customizations below.
 
 #SBATCH --nodes={{ .NodeCount }}
-#SBATCH --output="/home/gmo520/spark-exec/provx-%j.out"
+#SBATCH --output="/home/gmo520/spark-exec/provx-yarn-%j.out"
 
 # Note defaults of MAGPIE_STARTUP_TIME & MAGPIE_SHUTDOWN_TIME, this
 # timelimit should be a fair amount larger than them combined.
 #SBATCH --time=24:00:00
 
 # Job name.  This will be used in naming directories for the job.
-#SBATCH --job-name={{ .JobId }}
+#SBATCH --job-name=provx-spark-{{ .NodeCount }}
 
 # Partition to launch job in
-#SBATCH --partition='defq'
+#SBATCH --partition=defq
 
 ## SLURM Values
 # Generally speaking, don't touch the following, misc other configuration
@@ -82,6 +82,8 @@ export MAGPIE_LOCAL_DIR="/tmp/${USER}/magpie"
 
 # Magpie job type
 #
+# "hadoop" - Run a job according to the settings of HADOOP_JOB.
+#
 # "spark" - Run a job according to the settings of SPARK_JOB.
 #
 # "testall" - Run a job that runs all basic sanity tests for all
@@ -89,6 +91,7 @@ export MAGPIE_LOCAL_DIR="/tmp/${USER}/magpie"
 #             way to sanity check that everything has been setup
 #             correctly and the way you like.
 #
+#             For Hadoop, testall will run terasort
 #             For Spark, testall will run sparkpi
 #
 # "script" - Run arbitraty script, as specified by MAGPIE_JOB_SCRIPT.
@@ -107,7 +110,7 @@ export MAGPIE_JOB_TYPE="script"
 
 # Specify script and arguments to execute for "script" mode in
 # MAGPIE_JOB_TYPE
-
+#
 export MAGPIE_JOB_SCRIPT="{{ .JobScriptLocation }}"
 
 # Specify script startup / shutdown time window
@@ -222,7 +225,7 @@ export MAGPIE_ONE_TIME_RUN=yes
 # can be sourced easily if you will be running your job interactively.
 # It can also be loaded or used by other job scripts.
 #
-# export MAGPIE_ENVIRONMENT_VARIABLE_SCRIPT="${HOME}/my-job-env"
+export MAGPIE_ENVIRONMENT_VARIABLE_SCRIPT="${HOME}/provxlib/run/env-spark"
 
 # Environment Variable Shell Type
 #
@@ -314,7 +317,7 @@ export HADOOP_SETUP=yes
 # networked file system directly.  This option requires
 # HADOOP_FILESYSTEM_MODE to 'rawnetworkfs'.
 #
-export HADOOP_SETUP_TYPE="HDFS"
+export HADOOP_SETUP_TYPE="MR"
 
 # Version
 #
@@ -886,7 +889,7 @@ export SPARK_SETUP=yes
 # Make sure that HADOOP_SETUP_TYPE is set to MR or YARN for the
 # SPARK_SETUP_TYPE="YARN".
 #
-export SPARK_SETUP_TYPE="STANDALONE"
+export SPARK_SETUP_TYPE="YARN"
 
 # Version
 #
@@ -906,7 +909,7 @@ export SPARK_HOME="${HOME}/bin/spark-${SPARK_VERSION}"
 # job.  If local scratch space is not available, consider using the
 # MAGPIE_NO_LOCAL_DIR option.  See README for more details.
 #
-export SPARK_LOCAL_DIR="/local/${USER}/spark"
+export SPARK_LOCAL_DIR="/tmp/${USER}/spark"
 
 # Directory where alternate Spark configuration templates are stored
 #
