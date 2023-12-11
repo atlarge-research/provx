@@ -35,27 +35,41 @@ export LOCAL_DATASET_DIR := if exec_env == "local" {
 } else if exec_env == "das5" {
   "/var/scratch/gmo520/thesis/data/graphs"
 } else if exec_env == "das6" {
-  "/var/scratch/gmo520/thesis/data/graphs"
+  "/local/gmo520/graphs"
 } else {
   error("unknown environment")
 }
 
-export RUNNER_CONFIG := if exec_env == "local" {
-  "/Users/gm/vu/thesis/impl/provxlib/run/config.local.properties"
-} else if exec_env == "das5" {
-  "/home/gmo520/provxlib/run/config.das5.conf"
-} else if exec_env == "das6" {
-  "/home/gmo520/provxlib/run/config.das6.conf"
-} else {
-  error("unknown environment")
-}
+#export RUNNER_CONFIG := if exec_env == "local" {
+#  "/Users/gm/vu/thesis/impl/provxlib/run/config.local.properties"
+#} else if exec_env == "das5" {
+#  "/home/gmo520/provxlib/run/config.das5.conf"
+#} else if exec_env == "das6" {
+#  "/home/gmo520/provxlib/run/wow.conf"
+#} else {
+#  error("unknown environment")
+#}
 
+# "/home/gmo520/provxlib/run/config.das6.conf"
+
+env-check:
+  #!/usr/bin/env bash
+
+  if [ -z ${RUNNER_CONFIG+x} ]; then
+    echo "RUNNER_CONFIG is unset."
+    exit 1
+  fi
 
 # Environment variables required for Spark setup
 @env:
-  touch env
-  cat /home/gmo520/spark-exec/provx-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA|SPARK|HADOOP)' | sed 's/^\*\s*//g' | sort -u > env
-  echo 'export PATH="$HADOOP_HOME/bin:$SPARK_HOME/bin:$PATH"' >> env
+  if [ -z ${ENV_FILE+x} ]; then
+    echo "ENV_FILE is unset, using default `env`."
+    ENV_FILE="env"
+  fi
+
+  touch $ENV_FILE
+  cat /home/gmo520/spark-exec/provx-yarn-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA|SPARK|HADOOP)' | sed 's/^\*\s*//g' | sort -u > $ENV_FILE
+  echo 'export PATH="$HADOOP_HOME/bin:$SPARK_HOME/bin:$PATH"' >> $ENV_FILE
 
 # Copy graph datasets to HDFS
 copy: env
@@ -102,18 +116,10 @@ clean: clean-hdfs #clean-local
 setup: download decompress clean copy
 
 # Run benchmark
-bench description: env
+bench description: env-check env
   #!/usr/bin/env bash
   source ./env
-  exec 3>&1 4>&2
-  output=$(just provx "{{ description }}" 2> >(tee /dev/fd/4) | tee /dev/fd/3)
-  exec 3>&- 4>&-
-  # post
-  output_files=$(echo $output | grep 'RUNNER OUTPUT')
-  runner_stdout=$(echo $output_files | awk '{ print $3 }')
-  runner_stderr=$(echo $output_files | awk '{ print $4 }')
-  ARCHIVE_FOLDER=$(echo $output | grep 'Experiment path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
-  cp $runner_stdout $runner_stderr $ARCHIVE_FOLDER
+  just provx "{{ description }}"
 
 # Run benchmark
 dry: env
@@ -122,27 +128,25 @@ dry: env
   just provx "dry run" --dry-run true
 
 # Resume benchmark
-resume date: env
+resume date: env-check env
   #!/usr/bin/env bash
   source ./env
   # Dry run benchmark to show which configurations will be run
   read -n 1 -p "Continue? " bla
-  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "continue {{ date }}" --resume "{{ date }}" > >(tee runner.stdout.log) 2> >(tee runner.stderr.log >&2)
-  # post
-  ARCHIVE_FOLDER=$(cat runner.stdout.log | grep 'Experiments path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
-  cp runner.stdout.log runner.stderr.log $ARCHIVE_FOLDER
+  just provx "continue {{ date }}" --resume "{{ date }}"
 
-provx description *args:
+provx description *args: env-check
   #!/usr/bin/env bash
   fid=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 4)
   stdoutfile=runner-${fid}.stdout.log
   stderrfile=runner-${fid}.stderr.log
-  spark-submit --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "{{description}}" {{args}} > >(tee $stdoutfile) 2> >(tee $stderrfile >&2)
-  echo RUNNER OUTPUT $stdoutfile $stderrfile
+  spark-submit --master yarn --class lu.magalhaes.gilles.provxlib.benchmark.Runner $BENCHMARK_JAR --config $RUNNER_CONFIG --description "{{description}}" {{args}} > >(tee $stdoutfile) 2> >(tee $stderrfile >&2)
+  ARCHIVE_FOLDER=$(cat $stdoutfile | grep 'Experiment path' | tail -n 1 | cut -d ':' -f 2 | sed 's/ //')
+  mv $stdoutfile $stderrfile $ARCHIVE_FOLDER
 
-datasets:
+datasets: env-check
   #!/usr/bin/env bash
-  grep -zPo 'graphs\s+=\s+\[[^\]]+\]' $RUNNER_CONFIG | sed '1d;$d' | awk '{$1=$1;print}' | grep -v '#' | sed '/^$/d'
+  grep -zPo 'graphs\s+=\s+\[[^\]]+\]' $RUNNER_CONFIG | sed '1d;$d' | awk '{$1=$1;print}' | grep -v '//' | sed '/^$/d' | sed 's/"//g' | sed 's/,$//g'
 
 # Decompress compressed graph datasets
 decompress:
@@ -159,7 +163,7 @@ decompress:
   wait
 
 # Download graph datasets from LDBC Graphalytics
-download:
+download: env-check
   #!/bin/bash
 
   base_url="https://pub-383410a98aef4cb686f0c7601eddd25f.r2.dev/graphalytics/"
