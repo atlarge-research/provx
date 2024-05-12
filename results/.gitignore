@@ -8,4 +8,8 @@ __pycache__/
 .direnv*
 .devenv*
 devenv.local.nix
+.ipynb_checkpoints/
+
+src/main_old.py
+data/
 

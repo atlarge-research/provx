@@ -2,4 +2,4 @@ build:
   env GOOS=linux GOARCH=amd64 go build -o metarunner
 
 upload:
-  rsync -azP . das6:provxlib/metarunner
+  rsync -azP metarunner das6:provxlib/metarunner

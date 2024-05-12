@@ -18,6 +18,7 @@ class Parameters(BaseModel):
     # compressionEnabled: bool
     applicationId: str
     executorCount: int
+    storageFormat: str
 
 
 class Inputs(BaseModel):
