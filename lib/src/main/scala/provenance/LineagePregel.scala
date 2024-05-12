@@ -25,7 +25,7 @@ object LineagePregel extends Logging {
       sendMsg: EdgeTriplet[VD, ED] => Iterator[(VertexId, A)],
       mergeMsg: (A, A) => A
   ): GraphLineage[VD, ED] =
-    Utils.trace(gl, PregelAlgorithm()) {
+    Pipeline.trace(gl, PregelAlgorithm()) {
       require(
         maxIterations > 0,
         s"Maximum number of iterations must be greater than 0, but got ${maxIterations}"
@@ -68,7 +68,7 @@ object LineagePregel extends Logging {
         hooks.foreach(_.preIteration(g))
 
         prevG = g
-        g = Utils.trace(g, PregelIteration(i)) {
+        g = Pipeline.trace(g, PregelIteration(i)) {
           g.joinVertices(messages)(vprog)
         }
 

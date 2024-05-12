@@ -6,7 +6,7 @@ import provenance.metrics.{ObservationSet, TimeUnit}
 
 import scala.reflect.ClassTag
 
-object Utils {
+object Pipeline {
 
   def trace[VD: ClassTag, ED: ClassTag, VD1: ClassTag, ED1: ClassTag](
       source: GraphLineage[VD, ED],

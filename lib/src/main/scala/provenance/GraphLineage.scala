@@ -180,7 +180,7 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
   def trace[VD1: ClassTag, VD2: ClassTag](
       event: EventType
   )(f: => GraphLineage[VD1, VD2]): GraphLineage[VD1, VD2] = {
-    Utils.trace(this, event)(f)
+    Pipeline.trace(this, event)(f)
   }
 }
 

@@ -1,7 +1,7 @@
 package lu.magalhaes.gilles.provxlib
 package provenance.algorithms
 
-import provenance.{GraphLineage, Utils}
+import provenance.{GraphLineage, Pipeline}
 import provenance.events.{PregelIteration, PregelLifecycleStart, PregelLifecycleStop}
 import provenance.metrics.{Gauge, ObservationSet}
 
@@ -20,7 +20,7 @@ object LineagePageRank extends Logging {
     val vertexCount = gl.numVertices
 
     var workGraph: GraphLineage[Double, Double] =
-      Utils.trace(gl, PregelLifecycleStart()) {
+      Pipeline.trace(gl, PregelLifecycleStart()) {
         gl
           // Associate the degree with each vertex
           .outerJoinVertices(gl.outDegrees) { (_, _, deg) =>
@@ -56,7 +56,7 @@ object LineagePageRank extends Logging {
         .aggregate(0.0)((sum, vertexPair) => sum + vertexPair._2, _ + _)
 
       // Compute the new PageRank value of all nodes
-      workGraph = Utils.trace(workGraph, PregelIteration(iteration)) {
+      workGraph = Pipeline.trace(workGraph, PregelIteration(iteration)) {
         workGraph
           .outerJoinVertices(sumOfValues)((_, _, newSumOfValues) =>
             (1 - dampingFactor) / vertexCount +
@@ -78,7 +78,7 @@ object LineagePageRank extends Logging {
       iteration += 1
     }
 
-    Utils.trace(workGraph, PregelLifecycleStop()) {
+    Pipeline.trace(workGraph, PregelLifecycleStop()) {
       val newGl = workGraph.mapEdges(_ => ())
       newGl.metrics.merge(metrics)
       newGl
