@@ -225,7 +225,7 @@ export MAGPIE_ONE_TIME_RUN=yes
 # can be sourced easily if you will be running your job interactively.
 # It can also be loaded or used by other job scripts.
 #
-export MAGPIE_ENVIRONMENT_VARIABLE_SCRIPT="${HOME}/provxlib/run/env-spark"
+export MAGPIE_ENVIRONMENT_VARIABLE_SCRIPT="${HOME}/provxlib/run/env-$SLURM_JOB_ID"
 
 # Environment Variable Shell Type
 #
