@@ -62,11 +62,11 @@ env-check:
 
 # Environment variables required for Spark setup
 @env:
+  #!/usr/bin/env bash
   if [ -z ${ENV_FILE+x} ]; then
     echo "ENV_FILE is unset, using default `env`."
-    ENV_FILE="env"
+    ENV_FILE="./env"
   fi
-
   touch $ENV_FILE
   cat /home/gmo520/spark-exec/provx-yarn-$(squeue -u gmo520 | tail -n 1 | awk '{ print $1 }').out | grep -P 'export (JAVA|SPARK|HADOOP)' | sed 's/^\*\s*//g' | sort -u > $ENV_FILE
   echo 'export PATH="$HADOOP_HOME/bin:$SPARK_HOME/bin:$PATH"' >> $ENV_FILE
@@ -74,7 +74,11 @@ env-check:
 # Copy graph datasets to HDFS
 copy: env
   #!/usr/bin/env bash
-  source ./env
+  if [ -z ${ENV_FILE+x} ]; then
+    echo "ENV_FILE is unset, using default `env`."
+    ENV_FILE="./env"
+  fi
+  source $ENV_FILE
   files=$(just datasets | xargs -I{} find $LOCAL_DATASET_DIR -type f -name '{}*')
   hadoop fs -mkdir -p /graphs
   for f in $files; do
@@ -90,7 +94,11 @@ copy: env
 # DESTRUCTIVE: delete experiments directory
 clean-local: env
   #!/usr/bin/env bash
-  source ./env
+  if [ -z ${ENV_FILE+x} ]; then
+    echo "ENV_FILE is unset, using default `env`."
+    ENV_FILE="./env"
+  fi
+  source $ENV_FILE
   # TODO: ask for user to confirm before proceeding
   rm -r $EXPERIMENTS_DIR
   mkdir -p $EXPERIMENTS_DIR
@@ -98,7 +106,11 @@ clean-local: env
 # Clean HDFS directories
 clean-hdfs: env
   #!/usr/bin/env bash
-  source ./env
+  if [ -z ${ENV_FILE+x} ]; then
+    echo "ENV_FILE is unset, using default `env`."
+    ENV_FILE="./env"
+  fi
+  source $ENV_FILE
   dirs=(
     /lineage
     /results
@@ -116,27 +128,27 @@ clean: clean-hdfs #clean-local
 setup: download decompress clean copy
 
 # Run benchmark
-bench description: env-check env
-  #!/usr/bin/env bash
-  source ./env
+bench description:
   just provx "{{ description }}"
 
 # Run benchmark
-dry: env
-  #!/usr/bin/env bash
-  source ./env
+dry:
   just provx "dry run" --dry-run true
 
 # Resume benchmark
-resume date: env-check env
+resume date:
   #!/usr/bin/env bash
-  source ./env
   # Dry run benchmark to show which configurations will be run
   read -n 1 -p "Continue? " bla
   just provx "continue {{ date }}" --resume "{{ date }}"
 
-provx description *args: env-check
+provx description *args: env-check env
   #!/usr/bin/env bash
+  if [ -z ${ENV_FILE+x} ]; then
+    echo "ENV_FILE is unset, using default `env`."
+    ENV_FILE="./env"
+  fi
+  source $ENV_FILE
   fid=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 4)
   stdoutfile=runner-${fid}.stdout.log
   stderrfile=runner-${fid}.stderr.log
