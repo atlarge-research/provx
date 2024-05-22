@@ -1,6 +1,7 @@
 from typing import List
 from pydantic import BaseModel
 
+
 class Parameters(BaseModel):
     id: str | None
     experimentID: str | None
@@ -17,7 +18,8 @@ class Parameters(BaseModel):
     storageFormat: str | None
     # compressionEnabled: bool
     applicationId: str
-    executorCount: int
+    # executorCount: int
+    numExecutors: int
     storageFormat: str
 
 
@@ -99,7 +101,7 @@ class Outputs(BaseModel):
     stderr: str
     results: str
     graph: Graph
-    sizes: Sizes
+    sizes: List[IndividualItem]
     duration: Duration
     # metrics: List[Metric]
     # lineageDirectory: str

@@ -5,9 +5,10 @@ def format_seconds(x):
     if hours > 0:
         return f"{hours}h {minutes}m {seconds}s"
     elif minutes > 0:
-        return f"{minutes}m {seconds}s"
+        return f"{minutes:02d}:{seconds:02d}"
     else:
-        return f"{seconds}s"
+        return f"00:{seconds:02d}"
+
 
 def format_filesize(x):
     # Define size units

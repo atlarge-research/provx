@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Plotting scripts for experimental results"
 authors = ["Gilles Magalhaes <gilles.magalhaes@gmail.com>"]
 readme = "README.md"
-packages = [{include = "thesis_results"}]
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
