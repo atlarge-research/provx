@@ -4,6 +4,9 @@ package provenance
 import provenance.hooks.HooksRegistry
 import provenance.storage.{NullStorageHandler, StorageHandler}
 
+import lu.magalhaes.gilles.provxlib.provenance.events.PregelIteration
+import lu.magalhaes.gilles.provxlib.provenance.query.CaptureFilter
+import org.apache.spark.graphx.VertexId
 import org.apache.spark.sql.SparkSession
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -25,13 +28,15 @@ object ProvenanceContext {
   val hooks = new HooksRegistry()
   val graph = new ProvenanceGraph()
 
+  var captureFilter: Option[CaptureFilter] = None
+
+  def setCaptureFilter(c: CaptureFilter) = {
+    captureFilter = Some(c)
+  }
+
   // TODO: check if tracing disabled, then also disable storage
-  val tracingStatus = new Toggle(true)
-  val storageStatus = new Toggle(false)
-
-  def isTracingEnabled: Boolean = tracingStatus.isEnabled
-
-  def isStorageEnabled: Boolean = storageStatus.isEnabled
+  var tracingEnabled = true
+  var storageEnabled = false
 
   var storageHandler: StorageHandler = new NullStorageHandler()
 

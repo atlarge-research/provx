@@ -15,4 +15,8 @@ object TextUtils {
   def fromTList[T](input: List[T]): String = {
     input.map(_.toString).mkString(", ")
   }
+
+  def plural(value: Long, quantifier: String): String =
+    s"""$value $quantifier${if (value != 1) "s" else ""}"""
+
 }

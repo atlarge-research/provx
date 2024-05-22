@@ -1,12 +1,12 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
-import benchmark.configuration.ExperimentSetup.{ExperimentSetup, Storage}
+import benchmark.configuration.ExperimentSetup.ExperimentSetup
 import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
-import benchmark.utils.TextUtils
+import benchmark.utils.{TextUtils, TimeUtils}
+import provenance.storage.StorageFormat
 
 import com.typesafe.config.ConfigRenderOptions
-import lu.magalhaes.gilles.provxlib.provenance.storage.StorageFormat
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.generic.ProductHint
@@ -51,17 +51,17 @@ case class RunnerConfigData(
   /** Print configuration information for debugging
     */
   def debug(): Unit = {
-    println(s"Dataset path: ${runner.datasetPath}")
-    println(s"Lineage path: ${runner.lineagePath}")
-    println(s"Output  path: ${runner.outputPath}")
-    println(s"Repetitions : ${runner.repetitions}")
-    println(s"Graphs:     : ${runner.graphs.toSet.mkString(", ")}")
-    println(s"Algorithms  : ${runner.algorithms.mkString(", ")}")
-    println(s"Setups      : ${runner.setups.mkString(", ")}")
-    println(
-      s"Max. timeout: ${runner.timeoutMinutes} minute${if (runner.timeoutMinutes != 1) { "s" }
-      else { "" }}"
-    )
+    println(s"""Dataset path: ${runner.datasetPath}
+               |Lineage path: ${runner.lineagePath}
+               |Output  path: ${runner.outputPath}
+               |Repetitions : ${runner.repetitions}
+               |Graphs:     : ${runner.graphs.toSet.mkString(", ")}
+               |Algorithms  : ${runner.algorithms.mkString(", ")}
+               |Setups      : ${runner.setups.mkString(", ")}
+               |Max. timeout: ${TextUtils.plural(
+      runner.timeoutMinutes,
+      "minute"
+    )}""".stripMargin)
   }
 }
 

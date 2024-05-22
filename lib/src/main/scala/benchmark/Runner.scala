@@ -3,11 +3,7 @@ package benchmark
 
 import benchmark.configuration._
 import benchmark.configuration.BenchmarkAppConfig.write
-import benchmark.configuration.ExperimentSetup.{
-  ExperimentSetup,
-  StorageFormats,
-  Compression
-}
+import benchmark.configuration.ExperimentSetup.ExperimentSetup
 import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import benchmark.utils._
 import provenance.storage._
@@ -55,9 +51,9 @@ object Runner {
 
     // Write configuration files to local storage for benchmark results reproducibility
     runnerConfig.graphs.foreach(d => {
-      val hdfsPath = new Path(s"${runnerConfig.datasetPath}/${d}.properties")
+      val hdfsPath = new Path(s"${runnerConfig.datasetPath}/$d.properties")
       val localPath =
-        new Path(s"${configsPath.toString()}/${d}.properties")
+        new Path(s"${configsPath.toString()}/$d.properties")
       val fs = hdfsPath.getFileSystem(new Configuration())
       fs.copyToLocalFile(hdfsPath, localPath)
     })
@@ -82,8 +78,9 @@ object Runner {
     val runnerConfig = args.runnerConfig.runner
     val currentExperimentPath =
       os.Path(args.runnerConfig.runner.experimentsPath)
+    val timeoutMinutes = args.runnerConfig.runner.timeoutMinutes
 
-    println(s"Experiment path: ${currentExperimentPath}")
+    println(s"Experiment path: $currentExperimentPath")
 
     val configurations = experimentTuples
       .map(v => {
@@ -96,10 +93,11 @@ object Runner {
           setup = v._3,
           storageFormat = v._4,
           runNr = v._5,
-          outputDir = currentExperimentPath / s"experiment-${experimentID}",
+          outputDir = currentExperimentPath / s"experiment-$experimentID",
           graphalyticsConfigPath =
             s"${runnerConfig.datasetPath}/${v._1}.properties",
-          lineageDir = runnerConfig.lineagePath + s"/experiment-${experimentID}"
+          lineageDir = runnerConfig.lineagePath + s"/experiment-$experimentID",
+          numExecutors = sys.env("SPARK_WORKER_COUNT").toInt
         )
       })
 
@@ -111,7 +109,7 @@ object Runner {
       println(
         Console.BLUE +
           (Seq(
-            s"Experiment ${idx + 1}/${numConfigurations}:",
+            s"Experiment ${idx + 1}/$numConfigurations:",
             s"id=${experiment.experimentID}",
             s"algorithm=${experiment.algorithm}",
             s"graph=${experiment.dataset}",
@@ -152,8 +150,8 @@ object Runner {
             .setSparkHome(sparkHome.get)
             .setConf("spark.eventLog.enabled", "true")
             .setConf("spark.eventLog.dir", runnerConfig.sparkLogs)
-            .setConf("spark.ui.prometheus.enabled", "true")
             .setConf("spark.eventLog.logStageExecutorMetrics", "true")
+            .setConf("spark.ui.prometheus.enabled", "true")
             .setConf("spark.metrics.executorMetricsSource.enabled", "true")
             .setConf("spark.executor.cores", "48")
 //            .setConf("spark.driver.memory", "8G")
@@ -164,7 +162,7 @@ object Runner {
           os.write(experiment.outputDir / "IN-PROGRESS", "")
 
           val status = launcher.waitFor(
-            args.runnerConfig.runner.timeoutMinutes,
+            timeoutMinutes,
             TimeUnit.MINUTES
           )
           (launcher, status)
@@ -173,7 +171,7 @@ object Runner {
         if (!expectedExit) {
           NtfyNotifier.notify(
             s"ProvX bench: ${experiment.algorithm}/${experiment.dataset}/${experiment.setup}/${experiment.runNr}",
-            s"Failed to finish within 30 minutes deadline.",
+            s"Failed to finish within ${TextUtils.plural(timeoutMinutes, "minute")} deadline.",
             emoji = Some("sos")
           )
 
@@ -198,7 +196,7 @@ object Runner {
             NtfyNotifier.notify(
               s"ProvX bench (${idx + 1}/${configurations.length}): ${tuple
                 .mkString("/")}/" + (experiment.setup match {
-                case StorageFormats =>
+                case ExperimentSetup.CompleteProvenance =>
                   s"${experiment.storageFormat}/"
                 case _ =>
                   ""
@@ -281,7 +279,15 @@ object Runner {
       (sparkHome.isEmpty, "SPARK_HOME env variable must be defined."),
       (runnerConfig.runner.setups.isEmpty, "No setups defined."),
       (runnerConfig.runner.graphs.isEmpty, "No graphs to benchmark on."),
-      (runnerConfig.runner.algorithms.isEmpty, "No algorithms to benchmark.")
+      (runnerConfig.runner.algorithms.isEmpty, "No algorithms to benchmark."),
+      (
+        runnerConfig.runner.algorithms.contains(GraphAlgorithm.CDLP),
+        "CDLP algorithm not supported"
+      ),
+      (
+        runnerConfig.runner.algorithms.contains(GraphAlgorithm.LCC),
+        "LCC algorithm not supported"
+      )
     )
 
     for ((condition, explanation) <- conditions) {
@@ -312,24 +318,11 @@ object Runner {
         benchmarkConfig.setups
           .flatMap(es => {
             es match {
-              case StorageFormats =>
+              case ExperimentSetup.CompleteProvenance =>
                 benchmarkConfig.storageFormats
-//                Seq(
-//                  TextFile(),
-//                  ObjectFile(),
-//                  ParquetFile(),
-//                  AvroFile(),
-//                  ORCFile(),
-//                  CSVFile(),
-//                  JSONFormat(),
-//                  // Compressible formats
-//                  TextFile(true),
-//                  CSVFile(true),
-//                  JSONFormat(true)
-//                )
-                  .map(fmt => (v._1, v._2, ExperimentSetup.StorageFormats, fmt))
-              case Compression =>
-                Seq((v._1, v._2, ExperimentSetup.Compression, TextFile(true)))
+                  .map(fmt =>
+                    (v._1, v._2, ExperimentSetup.CompleteProvenance, fmt)
+                  )
               case es: ExperimentSetup =>
                 Seq((v._1, v._2, es, TextFile()))
             }

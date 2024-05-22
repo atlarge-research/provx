@@ -53,6 +53,9 @@ object ProvenanceGraph {
 class ProvenanceGraph(var graph: ProvenanceGraph.Type = Graph.empty) {
   import ProvenanceGraph._
 
+  def nodes = graph.nodes
+  def edges = graph.edges
+
   def add(
       source: ProvenanceGraphNode,
       target: ProvenanceGraphNode,

@@ -1,11 +1,11 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.configuration
 
+import benchmark.configuration.ExperimentSetup.ExperimentSetup
 import benchmark.configuration.GraphAlgorithm.GraphAlgorithm
 import provenance.storage.StorageFormat
 
 import com.typesafe.config.ConfigRenderOptions
-import lu.magalhaes.gilles.provxlib.benchmark.configuration.ExperimentSetup.ExperimentSetup
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.generic.ProductHint
@@ -29,20 +29,20 @@ case class BenchmarkAppConfig(
     graphalyticsConfigPath: String,
     // Path where to storage lineage
     lineageDir: String,
+    // Number of executors for this job
+    numExecutors: Long,
     // Experiment setup
     setup: ExperimentSetup
 ) {
-  override def toString(): String = {
-    val sb = new StringBuilder()
-    sb.append(s"Experiment ID : ${experimentID}\n")
-    sb.append(s"Dataset       : ${dataset}\n")
-    sb.append(s"Algorithm     : ${algorithm}\n")
-    sb.append(s"Run           : ${runNr}\n")
-    sb.append(s"Output dir    : ${outputDir}\n")
-    sb.append(s"Lineage dir   : ${lineageDir}\n")
-    sb.append(s"Setup         : ${setup}\n")
-    sb.toString()
-  }
+  override def toString: String =
+    s"""Num executors : $numExecutors
+       |Experiment ID : $experimentID
+       |Dataset       : $dataset
+       |Algorithm     : $algorithm
+       |Run           : $runNr
+       |Output dir    : $outputDir
+       |Lineage dir   : $lineageDir
+       |Setup         : $setup""".stripMargin
 }
 
 object BenchmarkAppConfig {
@@ -67,7 +67,7 @@ object BenchmarkAppConfig {
       _.toString
     )
 
-  implicit def productHint[T] =
+  implicit def productHint[T]: ProductHint[T] =
     ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
 
   def loadString(contents: String): ConfigReader.Result[BenchmarkAppConfig] =

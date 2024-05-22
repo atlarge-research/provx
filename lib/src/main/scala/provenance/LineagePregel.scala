@@ -38,15 +38,8 @@ object LineagePregel extends Logging {
         ProvenanceGraph.Edge(PregelLifecycleStart(), ObservationSet())
       )
 
-//    val graphCheckpointer = new PeriodicGraphCheckpointer[VD, ED](
-//      checkpointInterval, graph.vertices.sparkContext)
-//    graphCheckpointer.update(g)
-
       // compute the messages
       var messages = mapReduceTriplets(g, sendMsg, mergeMsg)
-//    val messageCheckpointer = new PeriodicRDDCheckpointer[(VertexId, A)](
-//      checkpointInterval, graph.vertices.sparkContext)
-//    messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
       var activeMessages = messages.count()
 
       // Get all PregelEventHooks
@@ -81,7 +74,6 @@ object LineagePregel extends Logging {
         // The call to count() materializes `messages` and the vertices of `g`. This hides oldMessages
         // (depended on by the vertices of g) and the vertices of prevG (depended on by oldMessages
         // and the vertices of g).
-        //      messageCheckpointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
         activeMessages = messages.count()
         g.metrics.add(Gauge("activeMessages", activeMessages))
 
@@ -102,9 +94,6 @@ object LineagePregel extends Logging {
       hooks.foreach(_.postStop(g))
 
       // TODO: only unpersist when lineage data is not needed
-//    messageCheckpointer.unpersistDataSet()
-//    graphCheckpointer.deleteAllCheckpoints()
-//    messageCheckpointer.deleteAllCheckpoints()
       g
     } // end of apply
 

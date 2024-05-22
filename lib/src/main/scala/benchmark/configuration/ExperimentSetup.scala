@@ -4,22 +4,16 @@ package benchmark.configuration
 object ExperimentSetup extends Enumeration {
   type ExperimentSetup = Value
   val
+  // Combined provenance graph and data graph pruning
+  CombinedPruning,
+  // Smart data graph pruning
+  DataGraphPruning,
+  // Only algorithm operation
+  ProvenanceGraphPruning,
   // Explore different storage formats (tradeoff compute(=compression)/storage)
-  StorageFormats,
-  // Storage on, compression on
-  Compression,
-  // Storage on, compression off
-  Storage,
+  CompleteProvenance,
   // Storage off, compression off
   Tracing,
-  // Smart data graph pruning
-  SmartPruning,
-  // Only algorithm operation
-  AlgorithmOpOnly,
-  // Only joinVertices operation
-  JoinVerticesOpOnly,
-  // Combined joinVertices, smart-pruning and compression
-  Combined,
-  // Baseline (no tracing, no storage, nothing)
+  // Baseline (no tracing, no capture, no storage)
   Baseline = Value
 }

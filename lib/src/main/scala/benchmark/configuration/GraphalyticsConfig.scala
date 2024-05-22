@@ -56,7 +56,7 @@ object GraphalyticsConfig extends ConfigLoader[GraphConfig] {
       path: String
   ): GraphConfig = {
     val realPath = if (path.startsWith("/")) {
-      s"file://${path}"
+      s"file://$path"
     } else {
       path
     }
@@ -71,7 +71,7 @@ object GraphalyticsConfig extends ConfigLoader[GraphConfig] {
 
     loadFile(filename) match {
       case Left(errors) =>
-        throw new Error(s"Unable to parse ${path} configuration: ${errors}")
+        throw new Error(s"Unable to parse $path configuration: $errors")
       case Right(value) => value
     }
   }

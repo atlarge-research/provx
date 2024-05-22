@@ -13,16 +13,14 @@ abstract class StorageHandler {
   def save[V: ClassTag, D: ClassTag](
       spark: SparkSession,
       g: GraphLineage[V, D]
-  ): StorageLocation = {
-    if (ProvenanceContext.isStorageEnabled) {
-      val th = TimeHook("storageTime")
-      th.pre(g)
-      val res = write(spark, g)
-      th.post(g)
-      res
-    } else {
-      EmptyLocation()
-    }
+  ): StorageLocation = if (ProvenanceContext.storageEnabled) {
+    val th = TimeHook("storageTime")
+    th.pre(g)
+    val res = write(spark, g)
+    th.post(g)
+    res
+  } else {
+    EmptyLocation()
   }
 
   // nameless writes

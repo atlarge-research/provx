@@ -4,8 +4,6 @@ package provenance
 import provenance.algorithms._
 import provenance.events._
 import provenance.metrics.ObservationSet
-import provenance.query.{CaptureFilter, DataPredicate, ProvenancePredicate}
-import provenance.storage.StorageLocation
 
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -16,8 +14,7 @@ import scala.reflect.ClassTag
 
 class GraphLineage[VD: ClassTag, ED: ClassTag](
     val graph: Graph[VD, ED],
-    override val metrics: ObservationSet = ObservationSet(),
-    val captureFilter: Option[CaptureFilter] = None
+    override val metrics: ObservationSet = ObservationSet()
 ) extends ProvenanceGraphNode {
 
   val id: Int = ProvenanceContext.newGLId(this)
@@ -49,31 +46,17 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
       LineageSSSP.run(this, source)
     }
 
-  // TODO: broken
-//  def cdlp(): GraphLineage[VertexId, Unit] = trace(Algorithm("cdlp")) {
-//    LineageCDLP.run(this)
-//  }
-//
-//  // TODO: broken
-  def lcc(): GraphLineage[Double, Unit] = trace(LCC()) {
-    LineageLCC.run(this)
-  }
+  // Not implemented since causes Spark to hang
+  def cdlp(): GraphLineage[VertexId, Unit] = ???
+  //  trace(Algorithm("cdlp")) {
+  //    LineageCDLP.run(this)
+  //  }
 
-  def capture(
-      provenanceFilter: ProvenancePredicate,
-      dataFilter: DataPredicate = DataPredicate()
-  ): GraphLineage[VD, ED] = {
-    val captureFilter = CaptureFilter(
-      dataFilter = dataFilter,
-      provenanceFilter = provenanceFilter
-    )
-    new GraphLineage(graph, metrics, captureFilter = Some(captureFilter))
-  }
-
-  // graph query operations
-  def query(): ProvenanceQuery = {
-    new ProvenanceQuery(this)
-  }
+  // Not implemented since causes Spark to hang
+  def lcc(): GraphLineage[Double, Unit] = ???
+  //  trace(LCC()) {
+  //    LineageLCC.run(this)
+  //  }
 
   // GraphOps and Graph GraphX interfaces
   val vertices: VertexRDD[VD] = graph.vertices
@@ -86,7 +69,7 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
       f: (VertexId, VD) => VD2
   )(implicit eq: VD =:= VD2 = null): GraphLineage[VD2, ED] =
     trace(Operation("mapVertices")) {
-      new GraphLineage(graph.mapVertices(f), captureFilter = captureFilter)
+      new GraphLineage(graph.mapVertices(f))
     }
 
   def joinVertices[U: ClassTag](
@@ -94,18 +77,17 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
   )(mapFunc: (VertexId, VD, U) => VD): GraphLineage[VD, ED] =
     trace(Operation("joinVertices")) {
       new GraphLineage(
-        graph.joinVertices(table)(mapFunc),
-        captureFilter = captureFilter
+        graph.joinVertices(table)(mapFunc)
       )
     }
 
   def mapEdges[ED2: ClassTag](map: Edge[ED] => ED2): GraphLineage[VD, ED2] =
     trace(Operation("mapEdges")) {
-      new GraphLineage(graph.mapEdges(map), captureFilter = captureFilter)
+      new GraphLineage(graph.mapEdges(map))
     }
 
   def cache(): GraphLineage[VD, ED] = trace(Operation("cache")) {
-    new GraphLineage(graph.cache(), captureFilter = captureFilter)
+    new GraphLineage(graph.cache())
   }
 
   def outerJoinVertices[U: ClassTag, VD2: ClassTag](other: RDD[(VertexId, U)])(
@@ -113,8 +95,7 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
   )(implicit eq: VD =:= VD2 = null): GraphLineage[VD2, ED] =
     trace(Operation("outerJoinVertices")) {
       new GraphLineage(
-        graph.outerJoinVertices(other)(mapFunc),
-        captureFilter = captureFilter
+        graph.outerJoinVertices(other)(mapFunc)
       )
     }
 
@@ -122,27 +103,25 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
       map: EdgeTriplet[VD, ED] => ED2
   ): GraphLineage[VD, ED2] =
     trace(Operation("mapTriplets")) {
-      new GraphLineage(graph.mapTriplets(map), captureFilter = captureFilter)
+      new GraphLineage(graph.mapTriplets(map))
     }
 
   def unpersist(blocking: Boolean = false): GraphLineage[VD, ED] =
     trace(Operation("unpersist")) {
-      new GraphLineage(graph.unpersist(blocking), captureFilter = captureFilter)
+      new GraphLineage(graph.unpersist(blocking))
     }
 
   def unpersistVertices(blocking: Boolean = false): GraphLineage[VD, ED] =
     trace(Operation("unpersistVertices")) {
       new GraphLineage(
-        graph.unpersistVertices(blocking),
-        captureFilter = captureFilter
+        graph.unpersistVertices(blocking)
       )
     }
 
   def removeSelfEdges(): GraphLineage[VD, ED] = {
     trace(Operation("removeSelfEdges")) {
       new GraphLineage(
-        graph.subgraph(epred = e => e.srcId != e.dstId),
-        captureFilter = captureFilter
+        graph.subgraph(epred = e => e.srcId != e.dstId)
       )
     }
   }
@@ -152,8 +131,7 @@ class GraphLineage[VD: ClassTag, ED: ClassTag](
   ): GraphLineage[VD, ED] =
     trace(Operation("convertToCanonicalEdges")) {
       new GraphLineage(
-        graph.convertToCanonicalEdges(mergeFunc),
-        captureFilter = captureFilter
+        graph.convertToCanonicalEdges(mergeFunc)
       )
     }
 

@@ -2,10 +2,15 @@ package lu.magalhaes.gilles.provxlib
 package provenance.query
 
 import org.apache.spark.graphx.{EdgeTriplet, VertexId}
+import org.apache.spark.rdd.RDD
 
-import scala.reflect.ClassTag
+trait DataPredicate
 
-case class DataPredicate(
+case class GraphPredicate(
     nodePredicate: (VertexId, Any) => Boolean = (_: VertexId, _: Any) => true,
     edgePredicate: EdgeTriplet[_, _] => Boolean = (_: EdgeTriplet[_, _]) => true
-)
+) extends DataPredicate
+
+case class DeltaPredicate(
+    sample: RDD[(VertexId, Any)]
+) extends DataPredicate

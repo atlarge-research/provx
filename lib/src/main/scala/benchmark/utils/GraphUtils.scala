@@ -1,19 +1,15 @@
 package lu.magalhaes.gilles.provxlib
 package benchmark.utils
 
-import benchmark.configuration.{
-  GraphalyticsConfig,
-  GraphalyticsConfigData,
-  GraphConfig
-}
+import benchmark.configuration.{GraphalyticsConfig, GraphConfig}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, Graph}
 
 object GraphUtils {
-  def verticesPath(prefix: String) = s"${prefix}.v"
-  def edgesPath(prefix: String) = s"${prefix}.e"
-  def configPath(prefix: String) = s"${prefix}.properties"
+  def verticesPath(prefix: String) = s"$prefix.v"
+  def edgesPath(prefix: String) = s"$prefix.e"
+  def configPath(prefix: String) = s"$prefix.properties"
 
   def load(
       sc: SparkContext,
