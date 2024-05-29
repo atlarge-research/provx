@@ -11,6 +11,10 @@ import provenance.{ProvenanceGraph, ProvenanceGraphNode}
 import provenance.events.{BFS, Operation}
 import provenance.metrics.ObservationSet
 
+import lu.magalhaes.gilles.provxlib.provenance.query.{
+  DeltaPredicate,
+  GraphPredicate
+}
 import lu.magalhaes.gilles.provxlib.provenance.storage.TextFile
 import lu.magalhaes.gilles.provxlib.utils.LocalSparkSession.withSparkSession
 import org.apache.spark.graphx.{Edge, Graph}
@@ -61,7 +65,8 @@ class BenchmarkTests extends AnyFunSuite {
           outputDir = outputDir,
           graphalyticsConfigPath = graphalyticsConfigPath,
           lineageDir = runnerConfig.runner.lineagePath,
-          setup = ExperimentSetup.Baseline
+          setup = ExperimentSetup.Baseline,
+          numExecutors = 7
         )
       )
       Benchmark.run(sc, config)
@@ -70,32 +75,24 @@ class BenchmarkTests extends AnyFunSuite {
 
   test("Benchmark flags computation") {
     assert(
-      Benchmark.computeFlags(ExperimentSetup.Compression) == (true, true)
-    )
-    assert(
-      Benchmark.computeFlags(ExperimentSetup.Storage) == (true, true)
+      Benchmark.computeFlags(ExperimentSetup.CompleteProvenance) == (true, true)
     )
     assert(
       Benchmark.computeFlags(ExperimentSetup.Tracing) == (true, false)
     )
     assert(
       Benchmark.computeFlags(
-        ExperimentSetup.SmartPruning
+        ExperimentSetup.DataGraphPruning
       ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
-        ExperimentSetup.AlgorithmOpOnly
+        ExperimentSetup.ProvenanceGraphPruning
       ) == (true, true)
     )
     assert(
       Benchmark.computeFlags(
-        ExperimentSetup.JoinVerticesOpOnly
-      ) == (true, true)
-    )
-    assert(
-      Benchmark.computeFlags(
-        ExperimentSetup.Combined
+        ExperimentSetup.CombinedPruning
       ) == (true, true)
     )
     assert(
@@ -131,32 +128,61 @@ class BenchmarkTests extends AnyFunSuite {
 
       val g = Graph(longVertices, edges)
 
-      assert(
-        g.subgraph(vpred =
-          Benchmark
-            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.WCC)
-        ).vertices
-          .collect()
-          .length == 1
-      )
+      {
+        val filter = Benchmark.dataFilter(
+          ExperimentSetup.DataGraphPruning,
+          GraphAlgorithm.WCC
+        ) match {
+          case GraphPredicate(nodePredicate, _) => nodePredicate
+          case DeltaPredicate(_)                => ???
+          case _                                => ???
+        }
 
-      assert(
-        g.subgraph(vpred =
-          Benchmark.dataFilter(ExperimentSetup.Baseline, GraphAlgorithm.WCC)
-        ).vertices
-          .collect()
-          .length == 3
-      )
+        assert(
+          g.subgraph(vpred = filter)
+            .vertices
+            .collect()
+            .length == 1
+        )
+      }
 
-      val g2 = Graph(doubleVertices, edges)
-      assert(
-        g2.subgraph(vpred =
-          Benchmark
-            .dataFilter(ExperimentSetup.SmartPruning, GraphAlgorithm.SSSP)
-        ).vertices
-          .collect()
-          .length == 1
-      )
+      {
+        val filter = Benchmark.dataFilter(
+          ExperimentSetup.Baseline,
+          GraphAlgorithm.WCC
+        ) match {
+          case GraphPredicate(nodePredicate, _) => nodePredicate
+          case DeltaPredicate(_)                => ???
+          case _                                => ???
+        }
+        assert(
+          g.subgraph(vpred = filter)
+            .vertices
+            .collect()
+            .length == 3
+        )
+      }
+
+      {
+        val filter = Benchmark
+          .dataFilter(
+            ExperimentSetup.DataGraphPruning,
+            GraphAlgorithm.SSSP
+          ) match {
+          case DeltaPredicate(_)                => ???
+          case GraphPredicate(nodePredicate, _) => nodePredicate
+          case _                                => ???
+        }
+
+        val g2 = Graph(doubleVertices, edges)
+        assert(
+          g2.subgraph(vpred = filter)
+            .vertices
+            .collect()
+            .length == 1
+        )
+
+      }
     }
   }
 
@@ -185,17 +211,8 @@ class BenchmarkTests extends AnyFunSuite {
       ProvenanceGraph.Edge(BFS(3), ObservationSet())
     )
 
-    val algOpFilter =
-      Benchmark.provenanceFilter(ExperimentSetup.AlgorithmOpOnly)
-
-    val res = pg.filter(nodeP = ProvenanceGraph.allNodes, edgeP = algOpFilter)
-
-    assert(res.graph.edges.count((e: ProvenanceGraph.Type#EdgeT) => {
-      algOpFilter(e.outer)
-    }) == 1)
-
     val joinVerticesFilter =
-      Benchmark.provenanceFilter(ExperimentSetup.JoinVerticesOpOnly)
+      Benchmark.provenanceFilter(ExperimentSetup.ProvenanceGraphPruning)
 
     val res2 =
       pg.filter(nodeP = ProvenanceGraph.allNodes, edgeP = joinVerticesFilter)

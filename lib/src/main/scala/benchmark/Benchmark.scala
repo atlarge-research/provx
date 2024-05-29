@@ -88,9 +88,10 @@ object Benchmark {
       CaptureFilter(
         provenanceFilter = ProvenancePredicate(
           nodePredicate = ProvenanceGraph.allNodes,
-          edgePredicate = provenanceFilter(description.setup)
+          edgePredicate =
+            provenanceFilter(description.setup, description.algorithm)
         ),
-        dataFilter = dataFilter(gl, description.setup, description.algorithm)
+        dataFilter = dataFilter(description.setup, description.algorithm)
       )
     )
 
@@ -182,7 +183,7 @@ object Benchmark {
     )
 
     // Clean up lineage folder after being done with it
-//    fs.delete(lineagePath, true)
+    fs.delete(lineagePath, true)
   }
 
   def computeFlags(expSetup: ExperimentSetup): (Boolean, Boolean) = {
@@ -201,7 +202,6 @@ object Benchmark {
   }
 
   def dataFilter(
-      gl: GraphLineage[Unit, Double],
       experimentSetup: ExperimentSetup,
       algorithm: GraphAlgorithm
   ): DataPredicate = {
@@ -239,14 +239,20 @@ object Benchmark {
     }
   }
 
-  def provenanceFilter(expSetup: ExperimentSetup): Relation => Boolean = {
+  def provenanceFilter(
+      expSetup: ExperimentSetup,
+      algorithm: GraphAlgorithm
+  ): Relation => Boolean = {
     expSetup match {
       case ExperimentSetup.ProvenanceGraphPruning |
           ExperimentSetup.CombinedPruning =>
         (r: ProvenanceGraph.Relation) => {
           r.edge.event match {
-            case Operation("joinVertices") => true
-            case _                         => false
+            case Operation("outerJoinVertices") =>
+              algorithm == GraphAlgorithm.fromString("pr")
+            case Operation("joinVertices") =>
+              algorithm != GraphAlgorithm.fromString("pr")
+            case _ => false
           }
         }
       case _ =>

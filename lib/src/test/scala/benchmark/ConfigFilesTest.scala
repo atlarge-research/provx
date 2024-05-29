@@ -101,7 +101,8 @@ class ConfigFilesTest extends AnyFunSuite {
       outputDir = outputDir,
       graphalyticsConfigPath = graphalyticsConfigPath,
       lineageDir = runnerConfig.runner.lineagePath,
-      setup = ExperimentSetup.Baseline
+      setup = ExperimentSetup.Baseline,
+      numExecutors = 7
     )
 
     println(BenchmarkAppConfig.write(config))
