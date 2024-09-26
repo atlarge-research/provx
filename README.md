@@ -25,8 +25,6 @@ ProvX introduces a reference design for integrating provenance into graph proces
 - [Python](https://www.python.org/) 3.10 for plotting the experiment results (`results` directory)
 - [`just`](https://just.systems/) command runner
 
-## Experiment cluster setup
-
 ### Local machine setup
 
 1. Install the appropriate Python, Go and Scala versions.
