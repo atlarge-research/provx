@@ -60,7 +60,7 @@ $ patch -p1 < <magpie-repo-root>/patches/spark/spark-3.3.2-bin-hadoop3-alternate
 2. Adjust `metarunner/templates/magpie.sbatch-srun-provx-with-yarn-and-hdfs` to suit your SLURM cluster's configuration.
 3. Generate the launch scripts by running the metarunner: `./metarunner -configDir ./configs -outputDir ./scripts`. In the `scripts` directory you will find the `sbatch` job scripts for setting up the Apache Spark cluster on your SLURM cluster. You can submit them individually via, e.g. `sbatch magpie.sbatch-srun-provx-es01-baseline-06.sh` depending on which experiment you want to reproduce.
 
-## Running the experiments
+### Running the experiments
 
 1. SSH into the Apache Spark's headnode (Check the submitted job file for the line starting with `#SBATCH --output=` to determine which output file the job is writing to. This file will contain the hostname of the Spark headnode).
 2. Change into this repo's `run` directory on the Spark headnode.
